@@ -651,6 +651,25 @@ h3 {
 }
 
 /* ============================================
+   App Download Section
+   ============================================ */
+.app-download-section {
+    margin-top: 2rem;
+    text-align: center;
+}
+
+.app-download-desc {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: var(--spacing);
+}
+
+.app-download-section .btn.btn-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ============================================
    表单样式
    ============================================ */
 .form-group {

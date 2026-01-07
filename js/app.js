@@ -7,11 +7,13 @@ const app = {
     currentPage: 'dashboard',
     currentMonth: null,
     currentFilter: 'all',
+    deferredPrompt: null, // 存储 PWA 安装提示
 
     // 初始化应用
     init() {
         this.setupNavigation();
         this.setupEventListeners();
+        this.setupPWAInstall();
         this.checkAuth();
         this.loadDashboard();
         this.initializeCurrentMonth();
@@ -622,6 +624,100 @@ const app = {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.remove('active');
+        }
+    },
+
+    // 设置 PWA 安装功能
+    setupPWAInstall() {
+        // 检测是否已安装（standalone 模式）
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                            window.navigator.standalone || 
+                            document.referrer.includes('android-app://');
+
+        if (isStandalone) {
+            this.updateInstallButton('installed');
+            return;
+        }
+
+        // 监听 beforeinstallprompt 事件（Chrome, Edge, Samsung Internet）
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            this.updateInstallButton('ready');
+        });
+
+        // 检测 iOS Safari
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+            this.updateInstallButton('ios');
+            return;
+        }
+
+        // 检测其他浏览器
+        const isAndroid = /Android/.test(navigator.userAgent);
+        if (isAndroid) {
+            // Android 但不在 Chrome，显示通用提示
+            this.updateInstallButton('android');
+        } else {
+            // 其他浏览器
+            this.updateInstallButton('browser');
+        }
+    },
+
+    // 更新安装按钮状态
+    updateInstallButton(status) {
+        const installBtn = document.getElementById('installAppBtn');
+        const installBtnText = document.getElementById('installBtnText');
+
+        if (!installBtn) return;
+
+        switch(status) {
+            case 'ready':
+                installBtn.style.display = 'block';
+                installBtn.disabled = false;
+                installBtn.classList.remove('btn-disabled');
+                installBtnText.textContent = '📥 Download App';
+                break;
+            case 'installed':
+                installBtn.style.display = 'block';
+                installBtn.disabled = true;
+                installBtn.classList.add('btn-disabled');
+                installBtnText.textContent = '✅ App Installed';
+                break;
+            case 'ios':
+            case 'android':
+            case 'browser':
+                installBtn.style.display = 'block';
+                installBtn.disabled = false;
+                installBtn.classList.remove('btn-disabled');
+                installBtnText.textContent = '📥 Download App';
+                break;
+            default:
+                installBtn.style.display = 'none';
+        }
+    },
+
+    // 处理安装按钮点击
+    handleInstallClick() {
+        if (this.deferredPrompt) {
+            // Chrome/Edge/Samsung Internet - 显示原生安装提示
+            this.deferredPrompt.prompt();
+            
+            this.deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                    this.updateInstallButton('installed');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                this.deferredPrompt = null;
+            });
+        } else {
+            // iOS 或其他浏览器 - 显示手动安装说明
+            const installInstructions = document.getElementById('installInstructions');
+            if (installInstructions) {
+                installInstructions.style.display = installInstructions.style.display === 'none' ? 'block' : 'block';
+            }
         }
     }
 };
