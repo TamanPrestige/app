@@ -1,0 +1,1021 @@
+/* ============================================
+   Taman Management System - Mobile First CSS
+   ============================================ */
+
+/* 基础重置和变量 */
+:root {
+    --primary-color: #2563eb;
+    --primary-dark: #1e40af;
+    --secondary-color: #64748b;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+    --warning-color: #f59e0b;
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --radius: 8px;
+    --spacing: 1rem;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    /* 防止iOS橡皮筋效果 */
+    overscroll-behavior: none;
+    /* 优化滚动性能 */
+    -webkit-overflow-scrolling: touch;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    line-height: 1.6;
+    font-size: 16px;
+    /* 防止移动端双击缩放 */
+    touch-action: manipulation;
+    /* 支持安全区域（iPhone刘海屏） */
+    padding-bottom: env(safe-area-inset-bottom);
+    /* 防止iOS橡皮筋效果 */
+    overscroll-behavior: none;
+    /* 优化滚动性能 */
+    -webkit-overflow-scrolling: touch;
+    /* 固定高度，防止地址栏影响布局 */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+}
+
+/* ============================================
+   导航栏 (Navbar)
+   ============================================ */
+.navbar {
+    background-color: var(--card-bg);
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    padding: 0.75rem 0;
+    /* 支持安全区域 */
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--spacing);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-brand h1 {
+    font-size: 1.125rem;
+    color: var(--primary-color);
+    font-weight: 600;
+    margin: 0;
+}
+
+.user-info-mobile {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    padding: 0.5rem;
+}
+
+.nav-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.nav-toggle span {
+    width: 25px;
+    height: 3px;
+    background-color: var(--text-primary);
+    border-radius: 2px;
+    transition: all 0.3s;
+}
+
+.nav-menu {
+    display: none;
+    list-style: none;
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--card-bg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing);
+}
+
+.nav-menu.active {
+    display: flex;
+}
+
+.nav-link {
+    display: block;
+    padding: 0.75rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    border-radius: var(--radius);
+    transition: background-color 0.2s;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+}
+
+/* ============================================
+   主要内容区域
+   ============================================ */
+.main-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--spacing);
+    /* 移动端考虑底部导航栏高度 */
+    min-height: calc(100vh - 80px - 60px);
+    min-height: calc(100vh - 80px - 60px - env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--spacing) + 60px + env(safe-area-inset-bottom));
+}
+
+/* 桌面端不需要底部导航栏的padding */
+@media (min-width: 768px) {
+    .main-content {
+        min-height: calc(100vh - 80px);
+        padding-bottom: var(--spacing);
+    }
+}
+
+.page {
+    display: none;
+    animation: fadeIn 0.3s;
+}
+
+.page.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.container {
+    width: 100%;
+}
+
+h2 {
+    font-size: 1.375rem;
+    margin-bottom: var(--spacing);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing);
+    flex-wrap: wrap;
+    gap: var(--spacing);
+}
+
+/* ============================================
+   Dashboard 统计卡片
+   ============================================ */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: var(--card-bg);
+    padding: 1rem 0.75rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    /* 确保触摸目标足够大 */
+    min-height: 70px;
+}
+
+.stat-icon {
+    font-size: 1.75rem;
+    flex-shrink: 0;
+}
+
+.stat-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-info h3 {
+    font-size: 1.375rem;
+    color: var(--primary-color);
+    margin-bottom: 0.125rem;
+    font-weight: 700;
+}
+
+.stat-info p {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    margin: 0;
+}
+
+.quick-actions {
+    background: var(--card-bg);
+    padding: var(--spacing);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.quick-actions h3 {
+    margin-bottom: var(--spacing);
+    font-size: 1.125rem;
+}
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ============================================
+   按钮样式
+   ============================================ */
+.btn {
+    padding: 0.875rem 1.5rem;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    /* 确保触摸目标至少44x44px（iOS推荐） */
+    min-height: 44px;
+    min-width: 44px;
+    /* 移除移动端点击高亮 */
+    -webkit-tap-highlight-color: transparent;
+    /* 触摸反馈 */
+    touch-action: manipulation;
+}
+
+.btn:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-dark);
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #475569;
+}
+
+.btn-block {
+    width: 100%;
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #dc2626;
+}
+
+.btn-small {
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    min-height: 36px;
+}
+
+/* ============================================
+   Lot 管理页面
+   ============================================ */
+.search-box {
+    margin-bottom: var(--spacing);
+}
+
+.search-box input {
+    width: 100%;
+    padding: 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    /* 确保输入框足够大，易于触摸 */
+    min-height: 44px;
+    /* 移除移动端自动填充样式 */
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.lots-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing);
+}
+
+.lot-card {
+    background: var(--card-bg);
+    padding: var(--spacing);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--primary-color);
+}
+
+.lot-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.lot-number {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.lot-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.lot-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.lot-info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* ============================================
+   CCTV 页面
+   ============================================ */
+.cctv-notice {
+    background: #fef3c7;
+    border-left: 4px solid var(--warning-color);
+    padding: var(--spacing);
+    border-radius: var(--radius);
+    margin-bottom: var(--spacing);
+}
+
+.cctv-notice p {
+    color: #92400e;
+    font-weight: 500;
+}
+
+.cctv-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing);
+}
+
+.cctv-item {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.cctv-item iframe {
+    width: 100%;
+    height: 250px;
+    border: none;
+}
+
+.cctv-item-title {
+    padding: var(--spacing);
+    background: var(--bg-color);
+    font-weight: 500;
+}
+
+/* ============================================
+   管理费页面
+   ============================================ */
+.month-selector {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.month-selector select {
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    background: var(--card-bg);
+    color: var(--text-primary);
+}
+
+.fees-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing);
+    margin-bottom: var(--spacing);
+}
+
+.summary-card {
+    padding: var(--spacing);
+    border-radius: var(--radius);
+    text-align: center;
+    color: white;
+}
+
+.summary-card.paid {
+    background-color: var(--success-color);
+}
+
+.summary-card.unpaid {
+    background-color: var(--danger-color);
+}
+
+.summary-card h3 {
+    font-size: 1.25rem;
+    margin: 0;
+}
+
+.fees-filter {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: var(--spacing);
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn.active,
+.filter-btn:hover {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.fees-table-container {
+    overflow-x: auto;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: var(--spacing);
+    -webkit-overflow-scrolling: touch;
+}
+
+.fees-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px;
+}
+
+.fees-table thead {
+    background-color: var(--bg-color);
+}
+
+.fees-table th,
+.fees-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.fees-table th {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.fees-table td {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* 移动端：将表格改为卡片式显示 */
+.fees-mobile-view {
+    display: block;
+}
+
+.fees-mobile-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: var(--spacing);
+    margin-bottom: var(--spacing);
+    border-left: 4px solid var(--primary-color);
+}
+
+.fees-mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.fees-mobile-card-lot {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.fees-mobile-card-owner {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.fees-mobile-card-status {
+    margin-bottom: 0.5rem;
+}
+
+.fees-mobile-card-date {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+}
+
+.fees-mobile-card-actions {
+    margin-top: 0.75rem;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-badge.paid {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-badge.unpaid {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.bulk-actions {
+    text-align: center;
+    padding: var(--spacing);
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+/* ============================================
+   登录页面
+   ============================================ */
+.login-container {
+    max-width: 400px;
+    margin: 2rem auto;
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+}
+
+.login-container h2 {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.demo-credentials {
+    margin-top: var(--spacing);
+    padding: var(--spacing);
+    background: var(--bg-color);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.demo-credentials p {
+    margin-bottom: 0.5rem;
+}
+
+/* ============================================
+   表单样式
+   ============================================ */
+.form-group {
+    margin-bottom: var(--spacing);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* ============================================
+   Modal 弹窗
+   ============================================ */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing);
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    color: var(--text-primary);
+}
+
+.modal form {
+    padding: var(--spacing);
+}
+
+.modal-actions {
+    display: flex;
+    gap: var(--spacing);
+    justify-content: flex-end;
+    margin-top: var(--spacing);
+}
+
+/* ============================================
+   底部导航栏 (移动端)
+   ============================================ */
+.bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--card-bg);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    /* 支持安全区域 */
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--border-color);
+    /* 防止iOS橡皮筋效果 */
+    overscroll-behavior: none;
+}
+
+.bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    text-decoration: none;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    /* 确保触摸目标足够大 */
+    min-height: 60px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.bottom-nav-item:active {
+    background-color: var(--bg-color);
+    transform: scale(0.95);
+}
+
+.bottom-nav-item.active {
+    color: var(--primary-color);
+}
+
+.bottom-nav-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.bottom-nav-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* 登录页面隐藏底部导航 */
+#login.bottom-nav-active ~ .bottom-nav {
+    display: none;
+}
+
+/* 桌面端隐藏底部导航 */
+@media (min-width: 768px) {
+    .bottom-nav {
+        display: none;
+    }
+}
+
+/* ============================================
+   响应式设计 - 平板和桌面
+   ============================================ */
+@media (min-width: 768px) {
+    .nav-toggle {
+        display: none;
+    }
+    
+    .nav-menu {
+        display: flex;
+        flex-direction: row;
+        position: static;
+        box-shadow: none;
+        padding: 0;
+        gap: 0.5rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--spacing);
+    }
+    
+    .stat-card {
+        padding: var(--spacing);
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+    }
+    
+    .stat-info h3 {
+        font-size: 1.5rem;
+    }
+    
+    .stat-info p {
+        font-size: 0.875rem;
+    }
+    
+    .lots-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .cctv-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .action-buttons {
+        flex-direction: row;
+    }
+    
+    .month-selector {
+        flex-wrap: nowrap;
+    }
+    
+    /* 桌面端显示表格，隐藏移动端卡片 */
+    .fees-table-container {
+        display: block !important;
+    }
+    
+    .fees-mobile-view {
+        display: none !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    .lots-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .cctv-container {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* ============================================
+   移动端特殊优化
+   ============================================ */
+@media (max-width: 767px) {
+    /* 隐藏桌面表格，显示移动端卡片 */
+    .fees-table-container {
+        display: none !important;
+    }
+    
+    .fees-mobile-view {
+        display: block !important;
+    }
+    
+    /* 优化页面标题 */
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .page-header h2 {
+        margin-bottom: 0.75rem;
+    }
+    
+    /* 优化按钮大小 */
+    .page-header .btn {
+        width: 100%;
+    }
+    
+    /* 优化月份选择器 */
+    .month-selector {
+        width: 100%;
+    }
+    
+    .month-selector select {
+        flex: 1;
+    }
+    
+    /* 优化CCTV容器 */
+    .cctv-item iframe {
+        height: 200px;
+    }
+    
+    /* 优化模态框 */
+    .modal {
+        padding: 0;
+        align-items: flex-end;
+    }
+    
+    .modal-content {
+        max-width: 100%;
+        border-radius: var(--radius) var(--radius) 0 0;
+        max-height: 90vh;
+    }
+    
+    /* 优化表单输入 */
+        .form-group input,
+    .form-group textarea,
+    .form-group select {
+        font-size: 16px; /* 防止iOS自动缩放 */
+    }
+    
+    /* 优化滚动性能 */
+    .main-content {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* 优化卡片触摸反馈 */
+    .lot-card,
+    .fees-mobile-card {
+        -webkit-tap-highlight-color: rgba(37, 99, 235, 0.1);
+    }
+    
+    /* 优化统计卡片在手机上的显示 */
+    .stats-grid {
+        gap: 0.5rem;
+    }
+    
+    .stat-card {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+    }
+    
+    .stat-info h3 {
+        font-size: 1.25rem;
+    }
+    
+    .stat-info p {
+        font-size: 0.7rem;
+    }
+}
+
+/* ============================================
+   工具类
+   ============================================ */
+.hidden {
+    display: none !important;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.mt-1 {
+    margin-top: var(--spacing);
+}
+
+.mb-1 {
+    margin-bottom: var(--spacing);
+}
+

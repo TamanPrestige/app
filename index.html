@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Taman Management System - Residential Area Management">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Taman Management</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Apple Touch Icon (for iOS) -->
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <h1>🏠 Taman Prestige Resident</h1>
+            </div>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="#dashboard" class="nav-link active" data-page="dashboard">Dashboard</a></li>
+                <li><a href="#lots" class="nav-link" data-page="lots">Lots</a></li>
+                <li><a href="#cctv" class="nav-link" data-page="cctv">CCTV</a></li>
+                <li><a href="#fees" class="nav-link" data-page="fees">Maintenance Fees</a></li>
+                <li><a href="#login" class="nav-link" data-page="login" id="loginNavLink">Login</a></li>
+            </ul>
+            <div class="user-info-mobile" id="userInfoMobile" style="display: none;">
+                <span id="mobileUserName"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="main-content" id="mainContent">
+        <!-- Dashboard 页面 -->
+        <section id="dashboard" class="page active">
+            <div class="container">
+                <h2>Dashboard</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🏘️</div>
+                        <div class="stat-info">
+                            <h3 id="totalLots">48</h3>
+                            <p>Total Lots</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-info">
+                            <h3 id="paidFees">0</h3>
+                            <p>Paid This Month</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⏳</div>
+                        <div class="stat-info">
+                            <h3 id="unpaidFees">0</h3>
+                            <p>Unpaid This Month</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👤</div>
+                        <div class="stat-info">
+                            <h3 id="currentUser">Guest</h3>
+                            <p>Current User</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="quick-actions">
+                    <h3>Quick Actions</h3>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="app.navigateTo('lots')">View All Lots</button>
+                        <button class="btn btn-primary" onclick="app.navigateTo('fees')">Check Fees</button>
+                        <button class="btn btn-secondary" onclick="app.navigateTo('cctv')">View CCTV</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Lot 联系人管理页面 -->
+        <section id="lots" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <h2>Lot & Contact Management</h2>
+                    <button class="btn btn-primary" id="addLotBtn" style="display: none;" onclick="app.showAddLotModal()">
+                        + Add Lot
+                    </button>
+                </div>
+                
+                <div class="search-box">
+                    <input type="text" id="lotSearch" placeholder="Search by lot number or name..." oninput="app.searchLots(this.value)">
+                </div>
+                
+                <div class="lots-grid" id="lotsGrid">
+                    <!-- Lots will be dynamically loaded here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- CCTV 页面 -->
+        <section id="cctv" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <h2>Public CCTV</h2>
+                    <button class="btn btn-primary" id="editCctvBtn" style="display: none;" onclick="app.showCctvEditModal()">
+                        Edit CCTV Links
+                    </button>
+                </div>
+                
+                <div class="cctv-notice">
+                    <p>⚠️ Only public area CCTV footage is displayed here.</p>
+                </div>
+                
+                <div class="cctv-container" id="cctvContainer">
+                    <!-- CCTV feeds will be loaded here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 管理费页面 -->
+        <section id="fees" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <h2>Contribution</h2>
+                    <div class="month-selector">
+                        <button class="btn btn-secondary" onclick="app.changeMonth(-1)">← Prev</button>
+                        <select id="monthSelect" onchange="app.loadFeesForMonth(this.value)">
+                            <!-- Months will be populated dynamically -->
+                        </select>
+                        <button class="btn btn-secondary" onclick="app.changeMonth(1)">Next →</button>
+                    </div>
+                </div>
+                
+                <div class="fees-summary">
+                    <div class="summary-card paid">
+                        <h3>Paid: <span id="paidCount">0</span></h3>
+                    </div>
+                    <div class="summary-card unpaid">
+                        <h3>Unpaid: <span id="unpaidCount">0</span></h3>
+                    </div>
+                </div>
+                
+                <div class="fees-filter">
+                    <button class="filter-btn active" data-filter="all" onclick="app.filterFees('all')">All</button>
+                    <button class="filter-btn" data-filter="paid" onclick="app.filterFees('paid')">Paid</button>
+                    <button class="filter-btn" data-filter="unpaid" onclick="app.filterFees('unpaid')">Unpaid</button>
+                </div>
+                
+                <!-- 移动端卡片视图 -->
+                <div class="fees-mobile-view" id="feesMobileView">
+                    <!-- Mobile cards will be loaded here -->
+                </div>
+                
+                <!-- 桌面端表格视图 -->
+                <div class="fees-table-container">
+                    <table class="fees-table" id="feesTable">
+                        <thead>
+                            <tr>
+                                <th>Lot Number</th>
+                                <th>Owner Name</th>
+                                <th>Status</th>
+                                <th>Payment Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feesTableBody">
+                            <!-- Fees data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="bulk-actions" id="bulkActions" style="display: none;">
+                    <button class="btn btn-primary" onclick="app.markAllAsPaid()">Mark All as Paid</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 登录页面 -->
+        <section id="login" class="page">
+            <div class="container">
+                <div class="login-container">
+                    <h2>Login</h2>
+                    <form id="loginForm" onsubmit="app.handleLogin(event)">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" required autocomplete="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" required autocomplete="current-password">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Login</button>
+                    </form>
+                    <div class="demo-credentials">
+                        <p><strong>Demo Credentials:</strong></p>
+                        <p>Admin: admin / admin123</p>
+                        <p>Resident: resident / resident123</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Add/Edit Lot Modal -->
+    <div class="modal" id="lotModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="lotModalTitle">Add Lot</h3>
+                <button class="modal-close" onclick="app.closeModal('lotModal')">&times;</button>
+            </div>
+            <form id="lotForm" onsubmit="app.saveLot(event)">
+                <div class="form-group">
+                    <label for="lotNumber">Lot Number *</label>
+                    <input type="text" id="lotNumber" required>
+                </div>
+                <div class="form-group">
+                    <label for="ownerName">Owner Name *</label>
+                    <input type="text" id="ownerName" required>
+                </div>
+                <div class="form-group">
+                    <label for="phoneNumber">Phone Number *</label>
+                    <input type="tel" id="phoneNumber" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('lotModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CCTV Edit Modal -->
+    <div class="modal" id="cctvModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit CCTV Links</h3>
+                <button class="modal-close" onclick="app.closeModal('cctvModal')">&times;</button>
+            </div>
+            <form id="cctvForm" onsubmit="app.saveCctvLinks(event)">
+                <div class="form-group">
+                    <label for="cctvLinks">CCTV Links (one per line)</label>
+                    <textarea id="cctvLinks" rows="5" placeholder="Enter CCTV URLs, one per line&#10;Example:&#10;https://www.youtube.com/embed/...&#10;https://example.com/cctv-stream"></textarea>
+                    <small>Supports YouTube embed URLs, RTSP web streams, or any iframe-compatible URLs</small>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('cctvModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 底部导航栏 (移动端) -->
+    <nav class="bottom-nav" id="bottomNav">
+        <a href="#dashboard" class="bottom-nav-item active" data-page="dashboard">
+            <span class="bottom-nav-icon">📊</span>
+            <span class="bottom-nav-label">Dashboard</span>
+        </a>
+        <a href="#lots" class="bottom-nav-item" data-page="lots">
+            <span class="bottom-nav-icon">🏘️</span>
+            <span class="bottom-nav-label">Lots</span>
+        </a>
+        <a href="#cctv" class="bottom-nav-item" data-page="cctv">
+            <span class="bottom-nav-icon">📹</span>
+            <span class="bottom-nav-label">CCTV</span>
+        </a>
+        <a href="#fees" class="bottom-nav-item" data-page="fees">
+            <span class="bottom-nav-icon">💰</span>
+            <span class="bottom-nav-label">Contribution</span>
+        </a>
+    </nav>
+
+    <!-- Scripts -->
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed'));
+            });
+        }
+    </script>
+</body>
+</html>
