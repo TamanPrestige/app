@@ -2,7 +2,7 @@
   "name": "Taman Prestige Community",
   "short_name": "Taman Prestige",
   "description": "Residential area management system for Taman community",
-  "start_url": "/",
+  "start_url": "index.html",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
