@@ -97,23 +97,7 @@ body {
     padding: 0.5rem;
 }
 
-.nav-toggle {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.5rem;
-}
-
-.nav-toggle span {
-    width: 25px;
-    height: 3px;
-    background-color: var(--text-primary);
-    border-radius: 2px;
-    transition: all 0.3s;
-}
+/* nav-toggle 已移除 */
 
 .nav-menu {
     display: none;
@@ -1115,6 +1099,74 @@ h3 {
 /* 登录页面隐藏底部导航 */
 #login.bottom-nav-active ~ .bottom-nav {
     display: none;
+}
+
+/* Setting 导航项样式 */
+.setting-nav-item {
+    position: relative;
+    cursor: pointer;
+}
+
+.setting-dropdown {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    margin-bottom: 0.5rem;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    min-width: 150px;
+    overflow: hidden;
+    z-index: 1000;
+    animation: slideUp 0.2s ease;
+}
+
+.setting-dropdown.show {
+    display: flex;
+    flex-direction: column;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.setting-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem var(--spacing);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: background-color 0.2s;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.setting-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.setting-dropdown-item:hover,
+.setting-dropdown-item:active {
+    background-color: var(--bg-color);
+}
+
+.setting-dropdown-item .material-icons {
+    font-size: 1.25rem;
+    color: var(--primary-color);
+}
+
+.setting-dropdown-item span:last-child {
+    font-size: 0.875rem;
+    font-weight: 500;
 }
 
 /* 桌面端隐藏底部导航 */

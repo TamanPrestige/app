@@ -1,0 +1,41 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      "$uid": {
+        ".read": "$uid === auth.uid || (auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "$uid === auth.uid || (auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        "role": {
+          ".read": true,
+          ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        }
+      }
+    },
+    "presence": {
+      ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "lots": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "fees": {
+      ".read": "auth != null",
+      "$monthKey": {
+        "$lotId": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || $lotId === auth.uid)"
+        }
+      }
+    },
+    "cctv": {
+      ".read": "auth != null",
+      "links": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      }
+    }
+  }
+}
+

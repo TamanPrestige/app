@@ -37,23 +37,32 @@ const app = {
             });
         });
 
-        // 底部导航栏点击事件
+        // 底部导航栏点击事件（排除 Setting 项）
         document.querySelectorAll('.bottom-nav-item').forEach(item => {
+            // 跳过 Setting 项（它有单独的 onclick 处理）
+            if (item.classList.contains('setting-nav-item')) {
+                return;
+            }
             item.addEventListener('click', (e) => {
                 e.preventDefault();
                 const page = item.getAttribute('data-page');
-                this.navigateTo(page);
+                if (page) {
+                    this.navigateTo(page);
+                }
             });
         });
 
-        // 移动端菜单切换
-        const navToggle = document.getElementById('navToggle');
-        const navMenu = document.getElementById('navMenu');
-        if (navToggle) {
-            navToggle.addEventListener('click', () => {
-                navMenu.classList.toggle('active');
-            });
-        }
+        // 点击页面其他地方关闭 Setting 菜单
+        document.addEventListener('click', (e) => {
+            const settingNavItem = document.getElementById('settingNavItem');
+            const settingDropdown = document.getElementById('settingDropdown');
+            if (settingNavItem && settingDropdown) {
+                // 如果点击的不是 Setting 按钮或下拉菜单内的元素，关闭菜单
+                if (!settingNavItem.contains(e.target) && !settingDropdown.contains(e.target)) {
+                    this.closeSettingMenu();
+                }
+            }
+        });
     },
 
     // 设置事件监听器
@@ -118,12 +127,12 @@ const app = {
 
         // 显示/隐藏用户管理导航链接
         const usersNavLink = document.getElementById('usersNavLink');
-        const usersBottomNav = document.getElementById('usersBottomNav');
+        const usersSettingItem = document.getElementById('usersSettingItem');
         if (usersNavLink) {
             usersNavLink.style.display = isAdmin ? 'block' : 'none';
         }
-        if (usersBottomNav) {
-            usersBottomNav.style.display = isAdmin ? 'flex' : 'none';
+        if (usersSettingItem) {
+            usersSettingItem.style.display = isAdmin ? 'flex' : 'none';
         }
 
         // 更新导航栏
@@ -158,14 +167,51 @@ const app = {
         }
     },
 
+    // 处理登出
+    handleLogout() {
+        Vibration.short();
+        DataManager.logout();
+        this.navigateTo('login');
+    },
+
+    // 切换 Setting 菜单
+    toggleSettingMenu() {
+        Vibration.short();
+        const settingDropdown = document.getElementById('settingDropdown');
+        if (settingDropdown) {
+            const isShowing = settingDropdown.classList.contains('show');
+            if (isShowing) {
+                this.closeSettingMenu();
+            } else {
+                // 关闭其他可能打开的下拉菜单
+                document.querySelectorAll('.setting-dropdown.show').forEach(dropdown => {
+                    if (dropdown.id !== 'settingDropdown') {
+                        dropdown.classList.remove('show');
+                    }
+                });
+                settingDropdown.classList.add('show');
+            }
+        }
+    },
+
+    // 关闭 Setting 菜单
+    closeSettingMenu() {
+        const settingDropdown = document.getElementById('settingDropdown');
+        if (settingDropdown) {
+            settingDropdown.classList.remove('show');
+        }
+    },
+
     // 页面导航
     navigateTo(page) {
         // 震动反馈
         Vibration.short();
 
+        // 关闭 Setting 菜单
+        this.closeSettingMenu();
+
         if (page === 'logout') {
-            DataManager.logout();
-            this.navigateTo('login');
+            this.handleLogout();
             return;
         }
 
