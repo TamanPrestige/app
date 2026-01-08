@@ -461,17 +461,24 @@ const app = {
     // 更新状态显示
     updateUtilityStatusDisplay(status) {
         // 更新 Power 状态
-        const powerStatusBadge = document.getElementById('powerStatusBadge');
         const powerStatusIcon = document.getElementById('powerStatusIcon');
+        const powerStatusCross = document.getElementById('powerStatusCross');
         const powerStatusTime = document.getElementById('powerStatusTime');
         
-        if (powerStatusBadge) {
-            powerStatusBadge.textContent = status.power ? 'ON' : 'OFF';
-            powerStatusBadge.className = 'utility-status-badge ' + (status.power ? 'on' : 'off');
-        }
-        
         if (powerStatusIcon) {
-            powerStatusIcon.style.color = status.power ? 'var(--success-color)' : 'var(--danger-color)';
+            if (status.power) {
+                // 正常：显示黄色图标，隐藏 block
+                powerStatusIcon.style.color = '#fbbf24';
+                if (powerStatusCross) {
+                    powerStatusCross.style.display = 'none';
+                }
+            } else {
+                // 停电：显示黄色图标，显示 block 覆盖
+                powerStatusIcon.style.color = '#fbbf24';
+                if (powerStatusCross) {
+                    powerStatusCross.style.display = 'block';
+                }
+            }
         }
         
         if (powerStatusTime) {
@@ -490,17 +497,24 @@ const app = {
         }
         
         // 更新 Water 状态
-        const waterStatusBadge = document.getElementById('waterStatusBadge');
         const waterStatusIcon = document.getElementById('waterStatusIcon');
+        const waterStatusCross = document.getElementById('waterStatusCross');
         const waterStatusTime = document.getElementById('waterStatusTime');
         
-        if (waterStatusBadge) {
-            waterStatusBadge.textContent = status.water ? 'ON' : 'OFF';
-            waterStatusBadge.className = 'utility-status-badge ' + (status.water ? 'on' : 'off');
-        }
-        
         if (waterStatusIcon) {
-            waterStatusIcon.style.color = status.water ? 'var(--success-color)' : 'var(--danger-color)';
+            if (status.water) {
+                // 正常：显示蓝色图标，隐藏 block
+                waterStatusIcon.style.color = '#3b82f6';
+                if (waterStatusCross) {
+                    waterStatusCross.style.display = 'none';
+                }
+            } else {
+                // 停水：显示蓝色图标，显示 block 覆盖
+                waterStatusIcon.style.color = '#3b82f6';
+                if (waterStatusCross) {
+                    waterStatusCross.style.display = 'block';
+                }
+            }
         }
         
         if (waterStatusTime) {
