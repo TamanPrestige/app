@@ -11,12 +11,19 @@ const app = {
 
     // 初始化应用
     init() {
-        this.setupNavigation();
-        this.setupEventListeners();
-        this.setupPWAInstall();
-        this.checkAuth();
-        this.loadDashboard();
-        this.initializeCurrentMonth();
+        console.log('Initializing app...');
+        try {
+            this.setupNavigation();
+            this.setupEventListeners();
+            this.setupPWAInstall();
+            this.checkAuth();
+            this.loadDashboard();
+            this.initializeCurrentMonth();
+            console.log('App initialized successfully');
+        } catch (error) {
+            console.error('Error initializing app:', error);
+            alert('Error initializing app. Please check console for details.');
+        }
     },
 
     // 设置导航
@@ -63,11 +70,38 @@ const app = {
 
     // 检查认证状态
     checkAuth() {
-        const user = DataManager.getCurrentUser();
-        if (user) {
-            this.updateUIForUser(user);
-        } else {
-            this.navigateTo('login');
+        // 监听用户状态变化
+        window.addEventListener('userStateChanged', (event) => {
+            const user = event.detail;
+            if (user) {
+                this.updateUIForUser(user);
+                if (this.currentPage === 'login') {
+                    this.navigateTo('dashboard');
+                }
+            } else {
+                if (this.currentPage !== 'login') {
+                    this.navigateTo('login');
+                }
+            }
+        });
+
+        // 初始检查
+        try {
+            const user = DataManager.getCurrentUser();
+            if (user) {
+                this.updateUIForUser(user);
+            } else {
+                // 如果没有用户，显示登录页面
+                if (this.currentPage !== 'login') {
+                    this.navigateTo('login');
+                }
+            }
+        } catch (error) {
+            console.error('Error checking auth:', error);
+            // 如果检查失败，至少显示登录页面
+            if (this.currentPage !== 'login') {
+                this.navigateTo('login');
+            }
         }
     },
 
@@ -77,10 +111,20 @@ const app = {
         
         // 显示/隐藏管理员按钮
         document.querySelectorAll('[id$="Btn"], [id$="Actions"]').forEach(btn => {
-            if (btn.id.includes('addLot') || btn.id.includes('editCctv') || btn.id.includes('bulkActions')) {
+            if (btn.id.includes('addLot') || btn.id.includes('editCctv') || btn.id.includes('bulkActions') || btn.id.includes('addUser') || btn.id.includes('userManagement')) {
                 btn.style.display = isAdmin ? 'inline-block' : 'none';
             }
         });
+
+        // 显示/隐藏用户管理导航链接
+        const usersNavLink = document.getElementById('usersNavLink');
+        const usersBottomNav = document.getElementById('usersBottomNav');
+        if (usersNavLink) {
+            usersNavLink.style.display = isAdmin ? 'block' : 'none';
+        }
+        if (usersBottomNav) {
+            usersBottomNav.style.display = isAdmin ? 'flex' : 'none';
+        }
 
         // 更新导航栏
         const loginNavLink = document.getElementById('loginNavLink');
@@ -92,14 +136,16 @@ const app = {
         // 更新dashboard用户信息
         const currentUserEl = document.getElementById('currentUser');
         if (currentUserEl) {
-            currentUserEl.textContent = user.username.charAt(0).toUpperCase() + user.username.slice(1);
+            const displayName = user.email ? user.email.split('@')[0] : 'User';
+            currentUserEl.textContent = displayName.charAt(0).toUpperCase() + displayName.slice(1);
         }
 
         // 更新移动端用户信息
         const mobileUserName = document.getElementById('mobileUserName');
         const userInfoMobile = document.getElementById('userInfoMobile');
         if (mobileUserName && userInfoMobile) {
-            mobileUserName.textContent = user.username.charAt(0).toUpperCase() + user.username.slice(1);
+            const displayName = user.email ? user.email.split('@')[0] : 'User';
+            mobileUserName.textContent = displayName.charAt(0).toUpperCase() + displayName.slice(1);
             userInfoMobile.style.display = 'block';
         }
     },
@@ -177,6 +223,9 @@ const app = {
             case 'fees':
                 this.loadFees();
                 break;
+            case 'users':
+                this.loadUsers();
+                break;
         }
     },
 
@@ -197,38 +246,102 @@ const app = {
 
     // 加载Lots页面
     loadLots() {
-        const lots = DataManager.getAllLots();
         const lotsGrid = document.getElementById('lotsGrid');
         const isAdmin = DataManager.isAdmin();
 
+        // 设置监听器以实时更新
+        DataManager.setupLotsListener((lots) => {
+            this.renderLots(lots, lotsGrid, isAdmin);
+        });
+
+        // 初始渲染
+        const lots = DataManager.getAllLots();
+        this.renderLots(lots, lotsGrid, isAdmin);
+    },
+
+    // 渲染 Lots
+    renderLots(lots, lotsGrid, isAdmin) {
         lotsGrid.innerHTML = '';
 
         lots.forEach(lot => {
             const lotCard = document.createElement('div');
             lotCard.className = 'lot-card';
             lotCard.innerHTML = `
-                <div class="lot-card-header">
-                    <span class="lot-number">${lot.lotNumber}</span>
-                    ${isAdmin ? `
-                        <div class="lot-actions">
-                            <button class="btn btn-small btn-primary" onclick="app.editLot(${lot.id})">Edit</button>
-                            <button class="btn btn-small btn-danger" onclick="app.deleteLot(${lot.id})">Delete</button>
-                        </div>
-                    ` : ''}
+                <div class="lot-card-header" onclick="app.toggleLotCard('${lot.id}')">
+                    <div class="lot-header-left">
+                        <span class="lot-number">${lot.lotNumber}</span>
+                        ${lot.ownerName && lot.phoneNumber ? '<span class="material-icons lot-check-icon" title="Information completed">check_circle</span>' : ''}
+                    </div>
+                    <div class="lot-header-right">
+                        ${isAdmin ? `
+                            <div class="lot-actions" onclick="event.stopPropagation()">
+                                <button class="icon-btn" onclick="app.editLot('${lot.id}')" title="Edit">
+                                    <span class="material-icons">edit</span>
+                                </button>
+                            </div>
+                        ` : ''}
+                        <span class="material-icons expand-icon" id="expandIcon_${lot.id}">expand_more</span>
+                    </div>
                 </div>
-                <div class="lot-info">
+                <div class="lot-info" id="lotInfo_${lot.id}" style="display: none;">
                     <div class="lot-info-item">
-                        <span>👤</span>
-                        <span>${lot.ownerName}</span>
+                        <span class="material-icons lot-info-icon">person</span>
+                        <div class="lot-info-content">
+                            <span class="lot-info-label">Owner</span>
+                            <span class="lot-info-value">${lot.ownerName || 'Not set'}</span>
+                        </div>
                     </div>
                     <div class="lot-info-item">
-                        <span>📞</span>
-                        <span>${lot.phoneNumber}</span>
+                        <span class="material-icons lot-info-icon">phone</span>
+                        <div class="lot-info-content">
+                            <span class="lot-info-label">Phone</span>
+                            ${lot.phoneNumber ? `<a href="tel:${lot.phoneNumber.replace(/-/g, '')}" class="lot-phone-link">${lot.phoneNumber}</a>` : '<span class="lot-info-value">Not set</span>'}
+                        </div>
                     </div>
                 </div>
             `;
             lotsGrid.appendChild(lotCard);
         });
+    },
+
+    // 切换 Lot 卡片展开/折叠（手风琴效果）
+    toggleLotCard(lotId) {
+        const lotInfo = document.getElementById(`lotInfo_${lotId}`);
+        const expandIcon = document.getElementById(`expandIcon_${lotId}`);
+        
+        if (!lotInfo || !expandIcon) return;
+
+        const isExpanded = lotInfo.style.display !== 'none';
+        
+        // 先关闭所有其他卡片
+        const allLotInfos = document.querySelectorAll('[id^="lotInfo_"]');
+        const allExpandIcons = document.querySelectorAll('[id^="expandIcon_"]');
+        
+        allLotInfos.forEach(info => {
+            if (info.id !== `lotInfo_${lotId}`) {
+                info.style.display = 'none';
+            }
+        });
+        
+        allExpandIcons.forEach(icon => {
+            if (icon.id !== `expandIcon_${lotId}`) {
+                icon.textContent = 'expand_more';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        });
+        
+        // 然后切换当前卡片
+        if (isExpanded) {
+            // 折叠
+            lotInfo.style.display = 'none';
+            expandIcon.textContent = 'expand_more';
+            expandIcon.style.transform = 'rotate(0deg)';
+        } else {
+            // 展开
+            lotInfo.style.display = 'flex';
+            expandIcon.textContent = 'expand_less';
+            expandIcon.style.transform = 'rotate(180deg)';
+        }
     },
 
     // 搜索Lots
@@ -242,42 +355,13 @@ const app = {
 
         const lotsGrid = document.getElementById('lotsGrid');
         const isAdmin = DataManager.isAdmin();
-        lotsGrid.innerHTML = '';
-
-        filtered.forEach(lot => {
-            const lotCard = document.createElement('div');
-            lotCard.className = 'lot-card';
-            lotCard.innerHTML = `
-                <div class="lot-card-header">
-                    <span class="lot-number">${lot.lotNumber}</span>
-                    ${isAdmin ? `
-                        <div class="lot-actions">
-                            <button class="btn btn-small btn-primary" onclick="app.editLot(${lot.id})">Edit</button>
-                            <button class="btn btn-small btn-danger" onclick="app.deleteLot(${lot.id})">Delete</button>
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="lot-info">
-                    <div class="lot-info-item">
-                        <span>👤</span>
-                        <span>${lot.ownerName}</span>
-                    </div>
-                    <div class="lot-info-item">
-                        <span>📞</span>
-                        <span>${lot.phoneNumber}</span>
-                    </div>
-                </div>
-            `;
-            lotsGrid.appendChild(lotCard);
-        });
+        this.renderLots(filtered, lotsGrid, isAdmin);
     },
 
-    // 显示添加Lot模态框
+    // 显示添加Lot模态框（已禁用，因为 lot 是自动生成的）
     showAddLotModal() {
-        document.getElementById('lotModalTitle').textContent = 'Add Lot';
-        document.getElementById('lotForm').reset();
-        document.getElementById('lotForm').setAttribute('data-lot-id', '');
-        this.openModal('lotModal');
+        // 不再允许手动添加 lot，因为 LOT 01-48 已自动创建
+        alert('Lots are automatically created (LOT 01 - LOT 48). Please use Edit to add owner information.');
     },
 
     // 编辑Lot
@@ -293,46 +377,72 @@ const app = {
         this.openModal('lotModal');
     },
 
-    // 保存Lot
-    saveLot(event) {
+    // 保存Lot（只更新 ownerName 和 phoneNumber）
+    async saveLot(event) {
         event.preventDefault();
         const form = event.target;
         const lotId = form.getAttribute('data-lot-id');
 
+        if (!lotId) {
+            alert('Invalid lot. Please select a lot to edit.');
+            return;
+        }
+
         const lotData = {
-            lotNumber: document.getElementById('lotNumber').value.trim(),
             ownerName: document.getElementById('ownerName').value.trim(),
             phoneNumber: document.getElementById('phoneNumber').value.trim()
         };
 
-        if (lotId) {
-            // 更新
-            DataManager.updateLot(parseInt(lotId), lotData);
-        } else {
-            // 新增
-            DataManager.addLot(lotData);
+        // 验证必填字段
+        if (!lotData.ownerName || !lotData.phoneNumber) {
+            alert('Owner Name and Phone Number are required.');
+            return;
         }
 
-        this.closeModal('lotModal');
-        this.loadLots();
-        this.loadDashboard();
+        try {
+            // 只更新，不修改 lotNumber（lotNumber 是自动生成的，不可修改）
+            await DataManager.updateLot(lotId, lotData);
+
+            this.closeModal('lotModal');
+            this.loadLots();
+            this.loadDashboard();
+        } catch (error) {
+            alert('Error saving lot. Please try again.');
+            console.error(error);
+        }
     },
 
     // 删除Lot
-    deleteLot(id) {
+    async deleteLot(id) {
         if (confirm('Are you sure you want to delete this lot?')) {
-            DataManager.deleteLot(id);
-            this.loadLots();
-            this.loadDashboard();
+            try {
+                await DataManager.deleteLot(id);
+                this.loadLots();
+                this.loadDashboard();
+            } catch (error) {
+                alert('Error deleting lot. Please try again.');
+                console.error(error);
+            }
         }
     },
 
     // 加载CCTV页面
     loadCctv() {
-        const links = DataManager.getCctvLinks();
         const container = document.getElementById('cctvContainer');
 
-        if (links.length === 0) {
+        // 设置监听器以实时更新
+        DataManager.setupCctvListener((links) => {
+            this.renderCctv(links, container);
+        });
+
+        // 初始渲染
+        const links = DataManager.getCctvLinks();
+        this.renderCctv(links, container);
+    },
+
+    // 渲染 CCTV
+    renderCctv(links, container) {
+        if (!links || links.length === 0) {
             container.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">No CCTV links configured. Please contact administrator.</p>';
             return;
         }
@@ -368,13 +478,19 @@ const app = {
     },
 
     // 保存CCTV链接
-    saveCctvLinks(event) {
+    async saveCctvLinks(event) {
         event.preventDefault();
         const linksText = document.getElementById('cctvLinks').value;
         const links = linksText.split('\n').map(link => link.trim()).filter(link => link);
-        DataManager.saveCctvLinks(links);
-        this.closeModal('cctvModal');
-        this.loadCctv();
+        
+        try {
+            await DataManager.saveCctvLinks(links);
+            this.closeModal('cctvModal');
+            this.loadCctv();
+        } catch (error) {
+            alert('Error saving CCTV links. Please try again.');
+            console.error(error);
+        }
     },
 
     // 初始化当前月份
@@ -384,7 +500,7 @@ const app = {
         this.currentMonth = monthKey;
     },
 
-    // 获取当前月份键
+    // 获取当前月份键（用于 Dashboard）
     getCurrentMonthKey() {
         if (!this.currentMonth) {
             this.initializeCurrentMonth();
@@ -392,222 +508,328 @@ const app = {
         return this.currentMonth;
     },
 
-    // 加载管理费页面
+    // 当前选中的 lot ID（用于年度缴费表格）
+    currentFeeLotId: null,
+    currentFeeYear: null,
+    defaultFeeAmount: 10.00,
+
+    // 加载管理费页面（显示所有 lot 列表）
     loadFees() {
-        // 填充月份选择器
-        this.populateMonthSelector();
+        // 设置监听器以实时更新数据（类似 loadLots）
+        DataManager.setupLotsListener((lots) => {
+            this.renderFeesLots(lots);
+        });
         
-        // 加载当前月份的数据
-        this.loadFeesForMonth(this.getCurrentMonthKey());
+        // 初始加载
+        const lots = DataManager.getAllLots();
+        this.renderFeesLots(lots);
     },
 
-    // 填充月份选择器
-    populateMonthSelector() {
-        const months = DataManager.getAllMonths();
-        const select = document.getElementById('monthSelect');
+    // 渲染所有 lot 列表（类似 Lot 页面）
+    async renderFeesLots(lots = null) {
+        const container = document.getElementById('feesLotsView');
+        if (!container) return;
+
+        // 如果没有传入 lots，从 DataManager 获取
+        if (!lots) {
+            lots = DataManager.getAllLots();
+        }
+        
+        container.innerHTML = '';
+
+        // 如果还没有 lots 数据，显示加载提示
+        if (!lots || lots.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">Loading lots...</p>';
+            this.updateGrandTotal(0);
+            return;
+        }
+
+        let grandTotal = 0;
+
+        // 为每个 lot 计算总付款金额
+        for (const lot of lots) {
+            const totalPaid = await DataManager.getTotalPaidAmountForLot(lot.id);
+            grandTotal += totalPaid;
+            
+            const lotCard = document.createElement('div');
+            lotCard.className = 'lot-card';
+            lotCard.setAttribute('data-lot-id', lot.id); // 添加 data 属性便于查找
+            lotCard.innerHTML = `
+                <div class="lot-card-header" onclick="app.openFeeTable('${lot.id}')">
+                    <div class="lot-header-left">
+                        <span class="lot-number">${lot.lotNumber}</span>
+                        <span class="lot-total-paid" data-lot-id="${lot.id}">Total Paid: RM ${totalPaid.toFixed(2)}</span>
+                    </div>
+                    <div class="lot-header-right">
+                        <span class="material-icons expand-icon">chevron_right</span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(lotCard);
+        }
+
+        // 更新 Grand Total
+        this.updateGrandTotal(grandTotal);
+    },
+
+    // 更新 Grand Total 显示
+    updateGrandTotal(totalAmount) {
+        const grandTotalPaid = document.getElementById('grandTotalPaid');
+        if (grandTotalPaid) {
+            grandTotalPaid.textContent = `RM ${totalAmount.toFixed(2)}`;
+        }
+    },
+
+    // 打开年度缴费表格
+    async openFeeTable(lotId) {
+        this.currentFeeLotId = lotId;
+        const lot = DataManager.getLotById(lotId);
+        if (!lot) return;
+
+        // 设置模态框标题
+        document.getElementById('feeTableModalTitle').textContent = `Contribution - ${lot.lotNumber}`;
+
+        // 填充年份选择器
+        this.populateYearSelector();
+
+        // 加载当前年份的数据
+        const currentYear = new Date().getFullYear();
+        this.currentFeeYear = currentYear;
+        document.getElementById('yearSelect').value = currentYear;
+
+        // 设置默认金额
+        document.getElementById('defaultAmount').value = this.defaultFeeAmount.toFixed(2);
+
+        // 打开模态框
+        this.openModal('feeTableModal');
+
+        // 加载数据
+        await this.loadFeeTableForYear(currentYear);
+    },
+
+    // 填充年份选择器
+    populateYearSelector() {
+        const select = document.getElementById('yearSelect');
+        const currentYear = new Date().getFullYear();
         
         select.innerHTML = '';
-        months.forEach(month => {
+        // 显示当前年份前后各 2 年
+        for (let year = currentYear - 2; year <= currentYear + 2; year++) {
             const option = document.createElement('option');
-            option.value = month;
-            option.textContent = this.formatMonthKey(month);
-            if (month === this.getCurrentMonthKey()) {
+            option.value = year;
+            option.textContent = year;
+            if (year === currentYear) {
                 option.selected = true;
             }
             select.appendChild(option);
-        });
-    },
-
-    // 格式化月份键为可读格式
-    formatMonthKey(monthKey) {
-        const [year, month] = monthKey.split('-');
-        const date = new Date(year, parseInt(month) - 1);
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-    },
-
-    // 加载指定月份的管理费
-    loadFeesForMonth(monthKey) {
-        this.currentMonth = monthKey;
-        const fees = DataManager.getFeesForMonth(monthKey);
-        const lots = DataManager.getAllLots();
-
-        // 确保所有lot都有记录
-        const feeMap = new Map(fees.map(f => [f.lotId, f]));
-        lots.forEach(lot => {
-            if (!feeMap.has(lot.id)) {
-                fees.push({
-                    lotId: lot.id,
-                    lotNumber: lot.lotNumber,
-                    ownerName: lot.ownerName,
-                    status: 'unpaid',
-                    paymentDate: null,
-                    amount: 10.00
-                });
-            }
-        });
-
-        // 按lot number排序
-        fees.sort((a, b) => {
-            const numA = parseInt(a.lotNumber.replace('Lot ', ''));
-            const numB = parseInt(b.lotNumber.replace('Lot ', ''));
-            return numA - numB;
-        });
-
-        this.renderFeesTable(fees);
-        this.updateFeesSummary(fees);
-    },
-
-    // 渲染管理费表格
-    renderFeesTable(fees) {
-        const tbody = document.getElementById('feesTableBody');
-        const isAdmin = DataManager.isAdmin();
-        const filter = this.currentFilter;
-
-        let filteredFees = fees;
-        if (filter === 'paid') {
-            filteredFees = fees.filter(f => f.status === 'paid');
-        } else if (filter === 'unpaid') {
-            filteredFees = fees.filter(f => f.status === 'unpaid');
         }
+    },
 
-        // 桌面端表格渲染
+    // 加载指定年份的缴费表格
+    async loadFeeTableForYear(year) {
+        this.currentFeeYear = parseInt(year);
+        const lotId = this.currentFeeLotId;
+        if (!lotId) return;
+
+        const lot = DataManager.getLotById(lotId);
+        if (!lot) return;
+
+        // 获取该 lot 在该年份的所有月份数据
+        const monthlyFees = await DataManager.getFeesForLotAndYear(lotId, year);
+
+        // 渲染表格
+        this.renderAnnualFeeTable(monthlyFees, lot);
+    },
+
+    // 渲染年度缴费表格
+    renderAnnualFeeTable(monthlyFees, lot) {
+        const tbody = document.getElementById('annualFeeTableBody');
+        if (!tbody) return;
+
         tbody.innerHTML = '';
 
-        filteredFees.forEach(fee => {
+        const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+        const isAdmin = DataManager.isAdmin();
+
+        monthNames.forEach((monthName, index) => {
+            const month = index + 1;
+            const monthKey = `${this.currentFeeYear}-${month.toString().padStart(2, '0')}`;
+            const fee = monthlyFees.find(f => f.monthKey === monthKey) || {
+                monthKey: monthKey,
+                status: 'unpaid',
+                paymentDate: null,
+                amount: this.defaultFeeAmount
+            };
+
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${fee.lotNumber}</td>
-                <td>${fee.ownerName}</td>
+                <td>${monthName}</td>
                 <td>
-                    <span class="status-badge ${fee.status}">
-                        ${fee.status === 'paid' ? 'Paid' : 'Unpaid'}
-                    </span>
+                    ${isAdmin ? `
+                        <input type="number" 
+                               class="month-amount-input" 
+                               value="${fee.amount.toFixed(2)}" 
+                               step="0.01" 
+                               min="0"
+                               onchange="app.updateMonthAmount('${monthKey}', this.value)">
+                    ` : `RM ${fee.amount.toFixed(2)}`}
                 </td>
-                <td>${fee.paymentDate || '-'}</td>
                 <td>
-                    ${isAdmin && fee.status === 'unpaid' ? `
-                        <button class="btn btn-small btn-primary" onclick="app.markAsPaid('${this.currentMonth}', ${fee.lotId})">
-                            Mark Paid
+                    ${isAdmin ? `
+                        <input type="checkbox" 
+                               class="month-checkbox" 
+                               ${fee.status === 'paid' ? 'checked' : ''}
+                               onchange="app.toggleMonthPayment('${monthKey}', this.checked)">
+                    ` : `<span class="status-badge ${fee.status}">${fee.status === 'paid' ? 'Paid' : 'Unpaid'}</span>`}
+                </td>
+                <td class="month-payment-date">${fee.paymentDate || '-'}</td>
+                <td>
+                    ${isAdmin && fee.status === 'paid' ? `
+                        <button class="month-action-btn" onclick="app.setPaymentDate('${monthKey}')">
+                            <span class="material-icons">calendar_today</span>
+                            Set Date
                         </button>
-                    ` : '-'}
+                    ` : ''}
                 </td>
             `;
             tbody.appendChild(row);
         });
+    },
 
-        // 移动端卡片视图渲染
-        this.renderFeesMobileCards(filteredFees);
+    // 更新月份金额
+    async updateMonthAmount(monthKey, amount) {
+        const lotId = this.currentFeeLotId;
+        if (!lotId) return;
 
-        // 显示/隐藏批量操作按钮
-        const bulkActions = document.getElementById('bulkActions');
-        if (isAdmin && filteredFees.some(f => f.status === 'unpaid')) {
-            bulkActions.style.display = 'block';
-        } else {
-            bulkActions.style.display = 'none';
+        try {
+            const numAmount = parseFloat(amount);
+            if (isNaN(numAmount) || numAmount < 0) {
+                alert('Invalid amount');
+                return;
+            }
+
+            await DataManager.updateFeeAmount(monthKey, lotId, numAmount);
+            // 重新加载表格
+            await this.loadFeeTableForYear(this.currentFeeYear);
+        } catch (error) {
+            alert('Error updating amount. Please try again.');
+            console.error(error);
         }
     },
 
-    // 渲染移动端管理费卡片
-    renderFeesMobileCards(fees) {
-        const mobileView = document.getElementById('feesMobileView');
-        if (!mobileView) return;
+    // 切换月份付款状态
+    async toggleMonthPayment(monthKey, isPaid) {
+        const lotId = this.currentFeeLotId;
+        if (!lotId) return;
 
-        mobileView.innerHTML = '';
-
-        const isAdmin = DataManager.isAdmin();
-
-        fees.forEach(fee => {
-            const card = document.createElement('div');
-            card.className = 'fees-mobile-card';
-            card.innerHTML = `
-                <div class="fees-mobile-card-header">
-                    <div>
-                        <div class="fees-mobile-card-lot">${fee.lotNumber}</div>
-                        <div class="fees-mobile-card-owner">${fee.ownerName}</div>
-                    </div>
-                    <span class="status-badge ${fee.status}">
-                        ${fee.status === 'paid' ? 'Paid' : 'Unpaid'}
-                    </span>
-                </div>
-                <div class="fees-mobile-card-date">
-                    Payment Date: ${fee.paymentDate || 'Not paid'}
-                </div>
-                ${isAdmin && fee.status === 'unpaid' ? `
-                    <div class="fees-mobile-card-actions">
-                        <button class="btn btn-primary btn-block" onclick="app.markAsPaid('${this.currentMonth}', ${fee.lotId})">
-                            Mark as Paid
-                        </button>
-                    </div>
-                ` : ''}
-            `;
-            mobileView.appendChild(card);
-        });
+        try {
+            const status = isPaid ? 'paid' : 'unpaid';
+            const paymentDate = isPaid ? new Date().toISOString().split('T')[0] : null;
+            
+            await DataManager.updateFeeStatus(monthKey, lotId, status, paymentDate);
+            
+            // 重新加载表格
+            await this.loadFeeTableForYear(this.currentFeeYear);
+            
+            // 更新 Contribution 页面上该 lot 的 total 显示
+            await this.updateLotTotalDisplay(lotId);
+        } catch (error) {
+            alert('Error updating payment status. Please try again.');
+            console.error(error);
+        }
     },
 
-    // 更新管理费摘要
-    updateFeesSummary(fees) {
-        const paid = fees.filter(f => f.status === 'paid').length;
-        const unpaid = fees.filter(f => f.status === 'unpaid').length;
+    // 更新指定 lot 的 total 显示
+    async updateLotTotalDisplay(lotId) {
+        const container = document.getElementById('feesLotsView');
+        if (!container) return;
 
-        document.getElementById('paidCount').textContent = paid;
-        document.getElementById('unpaidCount').textContent = unpaid;
+        // 使用 data-lot-id 属性找到对应的 lot 卡片
+        const totalPaidSpan = container.querySelector(`.lot-total-paid[data-lot-id="${lotId}"]`);
+        if (totalPaidSpan) {
+            // 重新计算总付款金额
+            const totalPaid = await DataManager.getTotalPaidAmountForLot(lotId);
+            
+            // 更新显示
+            totalPaidSpan.textContent = `Total Paid: RM ${totalPaid.toFixed(2)}`;
+        }
+
+        // 更新 Grand Total
+        await this.updateGrandTotalDisplay();
     },
 
-    // 切换月份
-    changeMonth(direction) {
-        const months = DataManager.getAllMonths();
-        const currentIndex = months.indexOf(this.currentMonth);
-        let newIndex = currentIndex + direction;
+    // 更新 Grand Total 显示（重新计算所有 lot 的总和）
+    async updateGrandTotalDisplay() {
+        const lots = DataManager.getAllLots();
+        let grandTotal = 0;
 
-        if (newIndex < 0) newIndex = 0;
-        if (newIndex >= months.length) newIndex = months.length - 1;
+        for (const lot of lots) {
+            const totalPaid = await DataManager.getTotalPaidAmountForLot(lot.id);
+            grandTotal += totalPaid;
+        }
 
-        this.currentMonth = months[newIndex];
-        document.getElementById('monthSelect').value = this.currentMonth;
-        this.loadFeesForMonth(this.currentMonth);
+        this.updateGrandTotal(grandTotal);
     },
 
-    // 过滤管理费
-    filterFees(filter) {
-        this.currentFilter = filter;
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.getAttribute('data-filter') === filter) {
-                btn.classList.add('active');
-            }
-        });
-        this.loadFeesForMonth(this.currentMonth);
+    // 设置付款日期
+    async setPaymentDate(monthKey) {
+        const lotId = this.currentFeeLotId;
+        if (!lotId) return;
+
+        const dateStr = prompt('Enter payment date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+        if (!dateStr) return;
+
+        // 验证日期格式
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(dateStr)) {
+            alert('Invalid date format. Please use YYYY-MM-DD');
+            return;
+        }
+
+        try {
+            await DataManager.updateFeeStatus(monthKey, lotId, 'paid', dateStr);
+            
+            // 重新加载表格
+            await this.loadFeeTableForYear(this.currentFeeYear);
+            
+            // 更新 Contribution 页面上该 lot 的 total 显示
+            await this.updateLotTotalDisplay(lotId);
+        } catch (error) {
+            alert('Error updating payment date. Please try again.');
+            console.error(error);
+        }
     },
 
-    // 标记为已付款
-    markAsPaid(monthKey, lotId) {
-        const paymentDate = new Date().toISOString().split('T')[0];
-        DataManager.updateFeeStatus(monthKey, lotId, 'paid', paymentDate);
-        this.loadFeesForMonth(monthKey);
-        this.loadDashboard();
-    },
-
-    // 标记所有为已付款
-    markAllAsPaid() {
-        if (confirm('Mark all lots as paid for this month?')) {
-            DataManager.markAllAsPaid(this.currentMonth);
-            this.loadFeesForMonth(this.currentMonth);
-            this.loadDashboard();
+    // 更新默认金额
+    updateDefaultAmount(amount) {
+        const numAmount = parseFloat(amount);
+        if (!isNaN(numAmount) && numAmount >= 0) {
+            this.defaultFeeAmount = numAmount;
         }
     },
 
     // 处理登录
-    handleLogin(event) {
+    async handleLogin(event) {
         event.preventDefault();
-        const username = document.getElementById('username').value;
+        const email = document.getElementById('username').value; // 使用 email 作为用户名
         const password = document.getElementById('password').value;
 
-        const user = DataManager.login(username, password);
-        if (user) {
-            this.updateUIForUser(user);
-            this.navigateTo('dashboard');
-        } else {
-            alert('Invalid username or password');
+        try {
+            const user = await DataManager.login(email, password);
+            if (user) {
+                this.updateUIForUser(user);
+                this.navigateTo('dashboard');
+            }
+        } catch (error) {
+            let errorMessage = 'Login failed. Please try again.';
+            if (error.code === 'auth/user-not-found') {
+                errorMessage = 'User not found.';
+            } else if (error.code === 'auth/wrong-password') {
+                errorMessage = 'Incorrect password.';
+            } else if (error.code === 'auth/invalid-email') {
+                errorMessage = 'Invalid email address.';
+            }
+            alert(errorMessage);
         }
     },
 
@@ -625,6 +847,189 @@ const app = {
         if (modal) {
             modal.classList.remove('active');
         }
+    },
+
+    // 用户管理相关方法
+    showAddUserModal() {
+        document.getElementById('userModalTitle').textContent = 'Create User';
+        document.getElementById('userForm').reset();
+        document.getElementById('userForm').setAttribute('data-user-id', '');
+        this.openModal('userModal');
+    },
+
+    async saveUser(event) {
+        event.preventDefault();
+        const email = document.getElementById('userEmail').value.trim();
+        const password = document.getElementById('userPassword').value;
+        const role = 'resident'; // 强制为 resident
+        const displayName = document.getElementById('userName').value.trim() || null;
+
+        try {
+            // 检查当前用户是否为 admin
+            const currentUser = DataManager.getCurrentUser();
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert('Only admin can create users.');
+                return;
+            }
+
+            // 验证 admin 密码（用于重新登录）
+            // 使用一个更友好的方式：在模态框中添加密码验证字段
+            // 或者使用 prompt（简单但不够友好）
+            const adminPassword = prompt('Please enter your admin password to verify and continue:');
+            if (!adminPassword) {
+                return; // 用户取消
+            }
+
+            // 先验证 admin 密码是否正确
+            try {
+                // 临时登出以验证密码
+                const currentAuth = auth.currentUser;
+                if (currentAuth) {
+                    await auth.signOut();
+                    // 尝试用输入的密码登录
+                    await auth.signInWithEmailAndPassword(currentUser.email, adminPassword);
+                    // 验证成功，继续创建用户
+                }
+            } catch (verifyError) {
+                if (verifyError.code === 'auth/wrong-password' || verifyError.code === 'auth/user-not-found') {
+                    alert('Incorrect admin password. Please try again.');
+                    return;
+                }
+                throw verifyError;
+            }
+
+            // 创建用户（会自动登出新用户并重新登录 admin）
+            await DataManager.createUser(email, password, role, displayName, currentUser.email, adminPassword);
+            
+            // 检查是否还在登录状态
+            const stillLoggedIn = DataManager.isLoggedIn();
+            if (!stillLoggedIn) {
+                alert('User created successfully! However, you need to login again.');
+                this.navigateTo('login');
+            } else {
+                alert('User created successfully!');
+            }
+            
+            this.closeModal('userModal');
+            this.loadUsers();
+        } catch (error) {
+            let errorMessage = 'Error creating user. Please try again.';
+            if (error.code === 'auth/email-already-in-use') {
+                errorMessage = 'This email is already registered.';
+            } else if (error.code === 'auth/invalid-email') {
+                errorMessage = 'Invalid email address.';
+            } else if (error.code === 'auth/weak-password') {
+                errorMessage = 'Password is too weak. Minimum 6 characters required.';
+            } else if (error.code === 'auth/wrong-password') {
+                errorMessage = 'Incorrect admin password. Please try again.';
+            } else if (error.message && error.message.includes('admin')) {
+                errorMessage = 'Failed to re-login as admin. Please login again.';
+            }
+            alert(errorMessage);
+            console.error(error);
+            
+            // 如果创建失败但已登出，返回登录页面
+            if (!DataManager.isLoggedIn()) {
+                this.navigateTo('login');
+            }
+        }
+    },
+
+    async loadUsers() {
+        const usersList = document.getElementById('usersList');
+        if (!usersList) {
+            console.error('usersList element not found');
+            return;
+        }
+
+        try {
+            // 先显示加载状态
+            usersList.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">Loading users...</p>';
+            
+            const users = await DataManager.getAllUsers();
+            console.log('Loaded users:', users);
+            
+            if (!users || users.length === 0) {
+                usersList.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">No users found. Only admin can view users.</p>';
+                return;
+            }
+            
+            this.renderUsers(users);
+            
+            // 设置监听器以实时更新在线状态
+            DataManager.setupUsersPresenceListener(async (presenceData) => {
+                try {
+                    const users = await DataManager.getAllUsers();
+                    this.renderUsers(users);
+                } catch (error) {
+                    console.error('Error updating users:', error);
+                }
+            });
+        } catch (error) {
+            console.error('Error loading users:', error);
+            usersList.innerHTML = `<p style="text-align: center; padding: 2rem; color: var(--danger-color);">Error loading users: ${error.message || 'Unknown error'}</p>`;
+        }
+    },
+
+    renderUsers(users) {
+        const usersList = document.getElementById('usersList');
+        if (!usersList) return;
+        
+        usersList.innerHTML = '';
+
+        if (users.length === 0) {
+            usersList.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">No users found.</p>';
+            return;
+        }
+
+        users.forEach(user => {
+            const userCard = document.createElement('div');
+            userCard.className = 'lot-card';
+            userCard.innerHTML = `
+                <div class="lot-card-header">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div class="lot-number">${user.email}</div>
+                            <span class="online-status ${user.isOnline ? 'online' : 'offline'}" title="${user.isOnline ? 'Online' : 'Offline'}">
+                                <span class="material-icons" style="font-size: 1.125rem;">${user.isOnline ? 'circle' : 'radio_button_unchecked'}</span>
+                            </span>
+                        </div>
+                        <div class="lot-info-item" style="margin-top: 0.5rem;">
+                            <span class="material-icons" style="font-size: 1rem; vertical-align: middle;">person</span>
+                            <span>${user.username || user.email.split('@')[0]}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                        <span class="status-badge ${user.role === 'admin' ? 'paid' : 'unpaid'}">
+                            ${user.role === 'admin' ? 'Admin' : 'Resident'}
+                        </span>
+                    </div>
+                </div>
+                <div class="lot-info">
+                    <div class="lot-info-item">
+                        <span class="material-icons" style="font-size: 1rem; vertical-align: middle;">calendar_today</span>
+                        <span>Created: ${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</span>
+                    </div>
+                </div>
+            `;
+            usersList.appendChild(userCard);
+        });
+    },
+
+    searchUsers(query) {
+        const usersList = document.getElementById('usersList');
+        if (!usersList) return;
+        
+        const cards = usersList.querySelectorAll('.lot-card');
+        const lowerQuery = query.toLowerCase();
+
+        cards.forEach(card => {
+            const email = card.querySelector('.lot-number').textContent.toLowerCase();
+            const usernameElement = card.querySelector('.lot-info-item span:last-child');
+            const username = usernameElement ? usernameElement.textContent.toLowerCase() : '';
+            const matches = email.includes(lowerQuery) || username.includes(lowerQuery);
+            card.style.display = matches ? 'block' : 'none';
+        });
     },
 
     // 设置 PWA 安装功能
@@ -723,7 +1128,40 @@ const app = {
 };
 
 // 页面加载完成后初始化应用
-document.addEventListener('DOMContentLoaded', () => {
+function initializeApp() {
+    console.log('Attempting to initialize app...');
+    console.log('Firebase loaded:', typeof firebase !== 'undefined');
+    console.log('Database available:', typeof database !== 'undefined');
+    console.log('Auth available:', typeof auth !== 'undefined');
+    console.log('DataManager initialized:', DataManager.initialized);
+    
+    // 即使 Firebase 未加载，也初始化应用（允许基本功能）
+    // 但需要确保 DataManager 至少尝试初始化
+    if (typeof DataManager === 'undefined') {
+        console.error('DataManager not found');
+        setTimeout(initializeApp, 100);
+        return;
+    }
+    
+    // 尝试初始化 DataManager（如果还没初始化）
+    if (!DataManager.initialized && typeof database !== 'undefined' && typeof auth !== 'undefined') {
+        DataManager.init().catch(err => {
+            console.error('DataManager init error:', err);
+            // 即使失败也继续初始化应用
+        });
+    }
+    
+    // 初始化应用（不等待 DataManager，允许离线模式）
     app.init();
-});
+}
+
+// 等待 DOM 加载完成
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initializeApp, 100);
+    });
+} else {
+    // DOM 已加载
+    setTimeout(initializeApp, 100);
+}
 
