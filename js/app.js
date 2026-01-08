@@ -57,6 +57,15 @@ const app = {
             const settingNavItem = document.getElementById('settingNavItem');
             const settingDropdown = document.getElementById('settingDropdown');
             if (settingNavItem && settingDropdown) {
+                // 检查点击的目标是否是 Setting 下拉菜单项
+                const clickedItem = e.target.closest('.setting-dropdown-item');
+                if (clickedItem) {
+                    // 如果点击的是菜单项，延迟关闭菜单（确保导航完成）
+                    setTimeout(() => {
+                        this.closeSettingMenu();
+                    }, 100);
+                    return;
+                }
                 // 如果点击的不是 Setting 按钮或下拉菜单内的元素，关闭菜单
                 if (!settingNavItem.contains(e.target) && !settingDropdown.contains(e.target)) {
                     this.closeSettingMenu();
@@ -135,6 +144,28 @@ const app = {
             usersSettingItem.style.display = isAdmin ? 'flex' : 'none';
         }
 
+        // 显示/隐藏 Utility 设置选项（仅管理员）
+        const utilitySettingItem = document.getElementById('utilitySettingItem');
+        if (utilitySettingItem) {
+            utilitySettingItem.style.display = isAdmin ? 'flex' : 'none';
+        }
+
+        // 显示/隐藏 Transaction 选项（仅管理员）
+        const transactionsSettingItem = document.getElementById('transactionsSettingItem');
+        if (transactionsSettingItem) {
+            transactionsSettingItem.style.display = isAdmin ? 'flex' : 'none';
+        }
+
+        // 显示/隐藏 PDF 下载按钮（仅管理员）
+        const downloadDashboardPdfBtn = document.getElementById('downloadDashboardPdfBtn');
+        const downloadContributionPdfBtn = document.getElementById('downloadContributionPdfBtn');
+        if (downloadDashboardPdfBtn) {
+            downloadDashboardPdfBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+        }
+        if (downloadContributionPdfBtn) {
+            downloadContributionPdfBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+        }
+
         // 更新导航栏
         const loginNavLink = document.getElementById('loginNavLink');
         if (loginNavLink) {
@@ -165,6 +196,15 @@ const app = {
             mobileUserName.textContent = userDisplayName.charAt(0).toUpperCase() + userDisplayName.slice(1);
             userInfoMobile.style.display = 'block';
         }
+
+        // 显示状态给所有已登录用户（在 dashboard）
+        const utilityStatusDisplay = document.getElementById('utilityStatusDisplay');
+        if (utilityStatusDisplay) {
+            utilityStatusDisplay.style.display = user ? 'block' : 'none';
+            if (user) {
+                this.loadUtilityStatus();
+            }
+        }
     },
 
     // 处理登出
@@ -172,6 +212,23 @@ const app = {
         Vibration.short();
         DataManager.logout();
         this.navigateTo('login');
+    },
+
+    // 切换密码显示/隐藏
+    togglePasswordVisibility() {
+        const passwordInput = document.getElementById('password');
+        const passwordToggle = document.getElementById('passwordToggle');
+        
+        if (passwordInput && passwordToggle) {
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                passwordToggle.innerHTML = '<span class="material-icons">visibility_off</span>';
+            } else {
+                passwordInput.type = 'password';
+                passwordToggle.innerHTML = '<span class="material-icons">visibility</span>';
+            }
+            Vibration.short();
+        }
     },
 
     // 切换 Setting 菜单
@@ -267,6 +324,26 @@ const app = {
 
     // 根据页面加载数据
     loadPageData(page) {
+        // 清理之前的 utility 状态监听器（如果存在）
+        if (page !== 'dashboard' && page !== 'setting') {
+            if (this.utilityStatusUnsubscribe) {
+                this.utilityStatusUnsubscribe();
+                this.utilityStatusUnsubscribe = null;
+            }
+            if (this.utilityControlsUnsubscribe) {
+                this.utilityControlsUnsubscribe();
+                this.utilityControlsUnsubscribe = null;
+            }
+        }
+
+        // 清理 transactions 监听器（如果不在 transactions 页面）
+        if (page !== 'transactions') {
+            if (this.transactionsUnsubscribe) {
+                this.transactionsUnsubscribe();
+                this.transactionsUnsubscribe = null;
+            }
+        }
+
         switch(page) {
             case 'dashboard':
                 this.loadDashboard();
@@ -283,22 +360,214 @@ const app = {
             case 'users':
                 this.loadUsers();
                 break;
+            case 'setting':
+                this.loadSetting();
+                break;
+            case 'transactions':
+                this.loadTransactions();
+                break;
         }
     },
 
     // 加载Dashboard
     loadDashboard() {
-        const lots = DataManager.getAllLots();
-        document.getElementById('totalLots').textContent = lots.length;
+        // 加载电和水状态（所有已登录用户）
+        if (DataManager.isLoggedIn()) {
+            this.loadUtilityStatus();
+            this.loadBalance();
+            this.loadAnnualFinancialSummary();
+        }
+    },
 
-        // 获取当前月份的管理费统计
-        const currentMonth = this.getCurrentMonthKey();
-        const fees = DataManager.getFeesForMonth(currentMonth);
-        const paid = fees.filter(f => f.status === 'paid').length;
-        const unpaid = fees.filter(f => f.status === 'unpaid').length;
+    // 加载 Setting 页面
+    loadSetting() {
+        const isAdmin = DataManager.isAdmin();
+        const utilityControls = document.getElementById('utilityControls');
+        
+        // 显示/隐藏管理员控制面板
+        if (utilityControls) {
+            utilityControls.style.display = isAdmin ? 'block' : 'none';
+            if (isAdmin) {
+                this.loadUtilityControls();
+            }
+        }
+    },
 
-        document.getElementById('paidFees').textContent = paid;
-        document.getElementById('unpaidFees').textContent = unpaid;
+    // 加载电和水控制（管理员，用于 Setting 页面）
+    async loadUtilityControls() {
+        try {
+            const status = await DataManager.getUtilityStatus();
+            const powerSwitch = document.getElementById('powerSwitch');
+            const waterSwitch = document.getElementById('waterSwitch');
+            const powerTime = document.getElementById('powerTime');
+            const waterTime = document.getElementById('waterTime');
+            
+            if (powerSwitch) {
+                powerSwitch.checked = status.power;
+            }
+            if (waterSwitch) {
+                waterSwitch.checked = status.water;
+            }
+            if (powerTime && status.powerTime) {
+                powerTime.value = status.powerTime;
+            }
+            if (waterTime && status.waterTime) {
+                waterTime.value = status.waterTime;
+            }
+
+            // 设置监听器以实时更新
+            if (this.utilityControlsUnsubscribe) {
+                this.utilityControlsUnsubscribe();
+            }
+            this.utilityControlsUnsubscribe = DataManager.setupUtilityStatusListener((status) => {
+                if (powerSwitch) {
+                    powerSwitch.checked = status.power;
+                }
+                if (waterSwitch) {
+                    waterSwitch.checked = status.water;
+                }
+                if (powerTime && status.powerTime) {
+                    powerTime.value = status.powerTime;
+                }
+                if (waterTime && status.waterTime) {
+                    waterTime.value = status.waterTime;
+                }
+            });
+        } catch (error) {
+            console.error('Error loading utility controls:', error);
+        }
+    },
+
+    // 加载电和水状态（用于 dashboard 显示）
+    async loadUtilityStatus() {
+        try {
+            const status = await DataManager.getUtilityStatus();
+            
+            // 更新状态显示（所有用户可见）
+            this.updateUtilityStatusDisplay(status);
+
+            // 设置监听器以实时更新
+            if (this.utilityStatusUnsubscribe) {
+                this.utilityStatusUnsubscribe();
+            }
+            this.utilityStatusUnsubscribe = DataManager.setupUtilityStatusListener((status) => {
+                this.updateUtilityStatusDisplay(status);
+            });
+        } catch (error) {
+            console.error('Error loading utility status:', error);
+        }
+    },
+
+    // 更新状态显示
+    updateUtilityStatusDisplay(status) {
+        // 更新 Power 状态
+        const powerStatusBadge = document.getElementById('powerStatusBadge');
+        const powerStatusIcon = document.getElementById('powerStatusIcon');
+        const powerStatusTime = document.getElementById('powerStatusTime');
+        
+        if (powerStatusBadge) {
+            powerStatusBadge.textContent = status.power ? 'ON' : 'OFF';
+            powerStatusBadge.className = 'utility-status-badge ' + (status.power ? 'on' : 'off');
+        }
+        
+        if (powerStatusIcon) {
+            powerStatusIcon.style.color = status.power ? 'var(--success-color)' : 'var(--danger-color)';
+        }
+        
+        if (powerStatusTime) {
+            if (status.powerTime) {
+                const timeStr = this.formatDateTime(status.powerTime);
+                if (!status.power) {
+                    powerStatusTime.textContent = `Outage: ${timeStr}`;
+                } else {
+                    powerStatusTime.textContent = `Next Outage: ${timeStr}`;
+                }
+            } else if (status.power) {
+                powerStatusTime.textContent = 'Available';
+            } else {
+                powerStatusTime.textContent = '';
+            }
+        }
+        
+        // 更新 Water 状态
+        const waterStatusBadge = document.getElementById('waterStatusBadge');
+        const waterStatusIcon = document.getElementById('waterStatusIcon');
+        const waterStatusTime = document.getElementById('waterStatusTime');
+        
+        if (waterStatusBadge) {
+            waterStatusBadge.textContent = status.water ? 'ON' : 'OFF';
+            waterStatusBadge.className = 'utility-status-badge ' + (status.water ? 'on' : 'off');
+        }
+        
+        if (waterStatusIcon) {
+            waterStatusIcon.style.color = status.water ? 'var(--success-color)' : 'var(--danger-color)';
+        }
+        
+        if (waterStatusTime) {
+            if (status.waterTime) {
+                const timeStr = this.formatDateTime(status.waterTime);
+                if (!status.water) {
+                    waterStatusTime.textContent = `Outage: ${timeStr}`;
+                } else {
+                    waterStatusTime.textContent = `Next Outage: ${timeStr}`;
+                }
+            } else if (status.water) {
+                waterStatusTime.textContent = 'Available';
+            } else {
+                waterStatusTime.textContent = '';
+            }
+        }
+    },
+
+    // 格式化日期时间
+    formatDateTime(dateTimeString) {
+        if (!dateTimeString) return '';
+        try {
+            const date = new Date(dateTimeString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}`;
+        } catch (error) {
+            return dateTimeString;
+        }
+    },
+
+    // 切换电和水状态
+    async toggleUtility(type, status) {
+        try {
+            if (!DataManager.isAdmin()) {
+                alert('Only admin can change utility status');
+                return;
+            }
+            await DataManager.saveUtilityStatus(type, status);
+            Vibration.short();
+        } catch (error) {
+            console.error('Error toggling utility:', error);
+            alert('Failed to update utility status');
+            // 恢复开关状态
+            const switchEl = document.getElementById(`${type}Switch`);
+            if (switchEl) {
+                switchEl.checked = !status;
+            }
+        }
+    },
+
+    // 保存电和水的停电停水时间
+    async saveUtilityTime(type, time) {
+        try {
+            if (!DataManager.isAdmin()) {
+                alert('Only admin can set utility time');
+                return;
+            }
+            await DataManager.saveUtilityTime(type, time);
+            Vibration.short();
+        } catch (error) {
+            console.error('Error saving utility time:', error);
+            alert('Failed to save utility time');
+        }
     },
 
     // Lots 页面监听器回调（用于防止重复）
@@ -644,11 +913,13 @@ const app = {
             return;
         }
 
+        // 优化：一次性获取所有 lots 的总付款金额（只查询一次数据库）
+        const lotsTotalPaid = await DataManager.getAllLotsTotalPaid();
         let grandTotal = 0;
 
-        // 为每个 lot 计算总付款金额
+        // 为每个 lot 渲染卡片（使用优化后的数据）
         for (const lot of uniqueLots) {
-            const totalPaid = await DataManager.getTotalPaidAmountForLot(lot.id);
+            const totalPaid = lotsTotalPaid[lot.id] || 0;
             grandTotal += totalPaid;
             
             const lotCard = document.createElement('div');
@@ -863,17 +1134,16 @@ const app = {
         await this.updateGrandTotalDisplay();
     },
 
-    // 更新 Grand Total 显示（重新计算所有 lot 的总和）
+    // 更新 Grand Total 显示（重新计算所有 lot 的总和）- 优化版本
     async updateGrandTotalDisplay() {
-        const lots = DataManager.getAllLots();
-        let grandTotal = 0;
-
-        for (const lot of lots) {
-            const totalPaid = await DataManager.getTotalPaidAmountForLot(lot.id);
-            grandTotal += totalPaid;
-        }
-
+        try {
+            // 使用优化版本，只查询一次数据库
+            const grandTotal = await DataManager.getGrandTotal();
         this.updateGrandTotal(grandTotal);
+        } catch (error) {
+            console.error('Error updating grand total:', error);
+            this.updateGrandTotal(0);
+        }
     },
 
     // 设置付款日期
@@ -1323,7 +1593,803 @@ const app = {
                 installInstructions.style.display = installInstructions.style.display === 'none' ? 'block' : 'block';
             }
         }
-    }
+    },
+
+    // ============================================
+    // Transaction 管理
+    // ============================================
+
+    // 加载 Transactions 页面
+    async loadTransactions() {
+        if (!DataManager.isAdmin()) {
+            this.navigateTo('dashboard');
+            return;
+        }
+
+        const transactionsList = document.getElementById('transactionsList');
+        if (!transactionsList) return;
+
+        try {
+            const transactions = await DataManager.getAllTransactions();
+            this.renderTransactions(transactions);
+
+            // 设置监听器
+            if (this.transactionsUnsubscribe) {
+                this.transactionsUnsubscribe();
+            }
+            this.transactionsUnsubscribe = DataManager.setupTransactionsListener((transactions) => {
+                this.renderTransactions(transactions);
+                this.loadBalance(); // 更新 balance
+            });
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+        }
+    },
+
+    // 渲染 Transactions
+    renderTransactions(transactions) {
+        const transactionsList = document.getElementById('transactionsList');
+        if (!transactionsList) return;
+
+        transactionsList.innerHTML = '';
+
+        if (transactions.length === 0) {
+            transactionsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No transactions yet</p>';
+            return;
+        }
+
+        transactions.forEach(transaction => {
+            const transactionItem = document.createElement('div');
+            transactionItem.className = 'transaction-item';
+            
+            const date = new Date(transaction.date);
+            const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+            transactionItem.innerHTML = `
+                <div class="transaction-header">
+                    <div class="transaction-purpose">${transaction.purpose || 'N/A'}</div>
+                    <div class="transaction-cost">RM ${parseFloat(transaction.cost || 0).toFixed(2)}</div>
+                </div>
+                <div class="transaction-date">${formattedDate}</div>
+                ${transaction.imageUrl ? `
+                    <div class="transaction-image-container">
+                        <img src="${transaction.imageUrl}" alt="Receipt" class="transaction-image" onclick="app.viewTransactionImage('${transaction.imageUrl}')">
+                    </div>
+                ` : ''}
+                <div class="transaction-actions">
+                    <button class="btn btn-secondary" onclick="app.editTransaction('${transaction.id}')">Edit</button>
+                    <button class="btn btn-danger" onclick="app.deleteTransaction('${transaction.id}')">Delete</button>
+                </div>
+            `;
+
+            transactionsList.appendChild(transactionItem);
+        });
+    },
+
+    // 显示添加 Transaction Modal
+    showAddTransactionModal() {
+        const modal = document.getElementById('transactionModal');
+        const form = document.getElementById('transactionForm');
+        const title = document.getElementById('transactionModalTitle');
+        
+        if (modal && form && title) {
+            title.textContent = 'Add Transaction';
+            form.reset();
+            document.getElementById('transactionId').value = '';
+            document.getElementById('transactionImageUrl').value = '';
+            document.getElementById('transactionImagePreview').style.display = 'none';
+            
+            // 设置默认日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('transactionDate').value = today;
+            
+            modal.classList.add('active');
+        }
+    },
+
+    // 编辑 Transaction
+    async editTransaction(transactionId) {
+        try {
+            const transactions = await DataManager.getAllTransactions();
+            const transaction = transactions.find(t => t.id === transactionId);
+            
+            if (!transaction) {
+                alert('Transaction not found');
+                return;
+            }
+
+            const modal = document.getElementById('transactionModal');
+            const form = document.getElementById('transactionForm');
+            const title = document.getElementById('transactionModalTitle');
+            
+            if (modal && form && title) {
+                title.textContent = 'Edit Transaction';
+                document.getElementById('transactionId').value = transaction.id;
+                document.getElementById('transactionPurpose').value = transaction.purpose || '';
+                document.getElementById('transactionDate').value = transaction.date || '';
+                document.getElementById('transactionCost').value = transaction.cost || '';
+                document.getElementById('transactionImageUrl').value = transaction.imageUrl || '';
+                
+                // 显示图片预览
+                if (transaction.imageUrl) {
+                    const preview = document.getElementById('transactionImagePreview');
+                    const previewImg = document.getElementById('transactionImagePreviewImg');
+                    previewImg.src = transaction.imageUrl;
+                    preview.style.display = 'block';
+                } else {
+                    document.getElementById('transactionImagePreview').style.display = 'none';
+                }
+                
+                modal.classList.add('active');
+            }
+        } catch (error) {
+            console.error('Error editing transaction:', error);
+            alert('Failed to load transaction');
+        }
+    },
+
+    // 处理图片上传
+    async handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // 检查文件大小（imgbb 限制 32MB）
+        const maxSize = 32 * 1024 * 1024; // 32MB
+        if (file.size > maxSize) {
+            alert('Image size must be less than 32MB');
+            event.target.value = '';
+            return;
+        }
+
+        // 检查文件类型
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Please upload a valid image file (JPEG, PNG, GIF, or WebP)');
+            event.target.value = '';
+            return;
+        }
+
+        // 显示预览和上传状态
+        const preview = document.getElementById('transactionImagePreview');
+        const previewImg = document.getElementById('transactionImagePreviewImg');
+        const reader = new FileReader();
+        
+        reader.onload = async (e) => {
+            // 先显示预览
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+            
+            // 显示上传中状态
+            const uploadStatus = document.createElement('div');
+            uploadStatus.id = 'uploadStatus';
+            uploadStatus.style.cssText = 'margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-color); border-radius: 4px; font-size: 0.875rem; color: var(--text-secondary);';
+            uploadStatus.textContent = 'Uploading image...';
+            preview.appendChild(uploadStatus);
+
+            try {
+                // 转换为 base64（移除 data:image/... 前缀）
+                const base64Image = e.target.result.split(',')[1];
+                
+                // 调用 imgbb API 上传图片
+                const formData = new FormData();
+                formData.append('key', 'e83b239a7467e0816c6036b5b1fa247d');
+                formData.append('image', base64Image);
+
+                const response = await fetch('https://api.imgbb.com/1/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 上传成功，保存图片 URL
+                    const imageUrl = data.data.url;
+                    document.getElementById('transactionImageUrl').value = imageUrl;
+                    
+                    // 更新预览图片为上传后的 URL
+                    previewImg.src = imageUrl;
+                    
+                    // 移除上传状态，显示成功消息
+                    uploadStatus.textContent = 'Image uploaded successfully';
+                    uploadStatus.style.color = 'var(--success-color)';
+                    setTimeout(() => {
+                        if (uploadStatus.parentNode) {
+                            uploadStatus.remove();
+                        }
+                    }, 2000);
+                    
+                    Vibration.short();
+                } else {
+                    throw new Error(data.error?.message || 'Upload failed');
+                }
+            } catch (error) {
+                console.error('Error uploading image:', error);
+                alert('Failed to upload image. Please try again.');
+                
+                // 移除上传状态
+                uploadStatus.remove();
+                
+                // 清除预览和文件输入
+                preview.style.display = 'none';
+                event.target.value = '';
+                document.getElementById('transactionImageUrl').value = '';
+            }
+        };
+        
+        reader.readAsDataURL(file);
+    },
+
+    // 移除图片
+    removeTransactionImage() {
+        document.getElementById('transactionImage').value = '';
+        document.getElementById('transactionImagePreview').style.display = 'none';
+        document.getElementById('transactionImageUrl').value = '';
+    },
+
+    // 查看图片
+    viewTransactionImage(imageUrl) {
+        // 可以打开新窗口或 modal 查看大图
+        window.open(imageUrl, '_blank');
+    },
+
+    // 保存 Transaction
+    async saveTransaction(event) {
+        event.preventDefault();
+        
+        if (!DataManager.isAdmin()) {
+            alert('Only admin can manage transactions');
+            return;
+        }
+
+        try {
+            const transactionId = document.getElementById('transactionId').value;
+            const purpose = document.getElementById('transactionPurpose').value;
+            const date = document.getElementById('transactionDate').value;
+            const cost = document.getElementById('transactionCost').value;
+            const imageUrl = document.getElementById('transactionImageUrl').value;
+
+            if (!purpose || !date || !cost) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const transaction = {
+                id: transactionId || null,
+                purpose,
+                date,
+                cost,
+                imageUrl: imageUrl || null
+            };
+
+            await DataManager.saveTransaction(transaction);
+            this.closeModal('transactionModal');
+            Vibration.short();
+            
+            // 重新加载 transactions
+            await this.loadTransactions();
+            // 更新 balance
+            this.loadBalance();
+        } catch (error) {
+            console.error('Error saving transaction:', error);
+            alert('Failed to save transaction');
+        }
+    },
+
+    // 删除 Transaction
+    async deleteTransaction(transactionId) {
+        if (!DataManager.isAdmin()) {
+            alert('Only admin can delete transactions');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to delete this transaction?')) {
+            return;
+        }
+
+        try {
+            await DataManager.deleteTransaction(transactionId);
+            Vibration.short();
+            
+            // 重新加载 transactions
+            await this.loadTransactions();
+            // 更新 balance
+            this.loadBalance();
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+            alert('Failed to delete transaction');
+        }
+    },
+
+    // 加载和计算 Balance
+    async loadBalance() {
+        try {
+            // 获取 Grand Total（使用优化版本，只查询一次数据库）
+            const grandTotal = await DataManager.getGrandTotal();
+
+            // 获取所有 Transactions 的总金额
+            const totalTransactions = await DataManager.getTotalTransactionsAmount();
+
+            // 计算 Balance
+            const balance = grandTotal - totalTransactions;
+
+            // 更新显示
+            const balanceDisplay = document.getElementById('balanceDisplay');
+            const balanceValue = document.getElementById('balanceValue');
+            
+            if (balanceDisplay) {
+                balanceDisplay.style.display = DataManager.isLoggedIn() ? 'block' : 'none';
+            }
+            
+            if (balanceValue) {
+                balanceValue.textContent = `RM ${balance.toFixed(2)}`;
+                // 根据余额正负设置颜色
+                balanceValue.style.color = balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
+            }
+
+            // 设置监听器（如果还没有设置）
+            if (!this.balanceUnsubscribe) {
+                this.balanceUnsubscribe = DataManager.setupTransactionsListener(async () => {
+                    await this.loadBalance();
+                });
+            }
+        } catch (error) {
+            console.error('Error loading balance:', error);
+        }
+    },
+
+    // ============================================
+    // Annual Financial Summary
+    // ============================================
+
+    // 加载年度财务摘要
+    async loadAnnualFinancialSummary(year = null) {
+        const annualFinancialSummary = document.getElementById('annualFinancialSummary');
+        if (!annualFinancialSummary) return;
+
+        // 显示财务摘要区域
+        annualFinancialSummary.style.display = DataManager.isLoggedIn() ? 'block' : 'none';
+
+        // 如果没有指定年份，使用当前年份
+        if (!year) {
+            year = new Date().getFullYear().toString();
+        }
+
+        // 填充年份选择器
+        this.populateDashboardYearSelector(year);
+
+        // 加载指定年份的数据
+        await this.renderAnnualFinancialSummary(year);
+    },
+
+    // 填充 Dashboard 年份选择器
+    populateDashboardYearSelector(selectedYear) {
+        const yearSelect = document.getElementById('dashboardYearSelect');
+        if (!yearSelect) return;
+
+        yearSelect.innerHTML = '';
+        const currentYear = new Date().getFullYear();
+        
+        // 显示当前年份前 3 年和后 2 年（总共 6 年）
+        for (let year = currentYear - 3; year <= currentYear + 2; year++) {
+            const option = document.createElement('option');
+            option.value = year.toString();
+            option.textContent = year.toString();
+            if (year.toString() === selectedYear) {
+                option.selected = true;
+            }
+            yearSelect.appendChild(option);
+        }
+    },
+
+    // 渲染年度财务摘要
+    async renderAnnualFinancialSummary(year) {
+        const content = document.getElementById('financialSummaryContent');
+        if (!content) return;
+
+        try {
+            // 获取收入和支出数据
+            const incomeData = await DataManager.getIncomeForYear(year);
+            const expenseData = await DataManager.getExpensesForYear(year);
+
+            // 创建年份卡片
+            const yearCard = document.createElement('div');
+            yearCard.className = 'financial-year-card';
+
+            // 年份标题和总计
+            const yearHeader = document.createElement('div');
+            yearHeader.className = 'financial-year-header';
+            yearHeader.innerHTML = `
+                <div class="financial-year-title">${year}</div>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Income</div>
+                        <div class="financial-year-amount income">RM ${incomeData.total.toFixed(2)}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Expenses</div>
+                        <div class="financial-year-amount expense">RM ${expenseData.total.toFixed(2)}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Net</div>
+                        <div class="financial-year-amount" style="color: ${(incomeData.total - expenseData.total) >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}">
+                            RM ${(incomeData.total - expenseData.total).toFixed(2)}
+                        </div>
+                    </div>
+                </div>
+            `;
+            yearCard.appendChild(yearHeader);
+
+            // 收入部分
+            const incomeSection = document.createElement('div');
+            incomeSection.className = 'financial-section';
+            incomeSection.innerHTML = `
+                <div class="financial-section-title">
+                    <span class="material-icons">trending_up</span>
+                    <span>Income (Contribution)</span>
+                </div>
+                <div class="financial-list" id="incomeList"></div>
+            `;
+            yearCard.appendChild(incomeSection);
+
+            // 支出部分
+            const expenseSection = document.createElement('div');
+            expenseSection.className = 'financial-section';
+            expenseSection.innerHTML = `
+                <div class="financial-section-title">
+                    <span class="material-icons">trending_down</span>
+                    <span>Expenses (Transactions)</span>
+                </div>
+                <div class="financial-list" id="expenseList"></div>
+            `;
+            yearCard.appendChild(expenseSection);
+
+            content.innerHTML = '';
+            content.appendChild(yearCard);
+
+            // 渲染收入列表（按 lot 合并）
+            const incomeList = document.getElementById('incomeList');
+            if (incomeData.details.length === 0) {
+                incomeList.innerHTML = '<div style="padding: 0.75rem; color: var(--text-secondary); text-align: center;">No income records</div>';
+            } else {
+                // 按 lotId 分组并计算总数
+                const lotTotals = {};
+                incomeData.details.forEach(item => {
+                    if (!lotTotals[item.lotId]) {
+                        lotTotals[item.lotId] = {
+                            lotNumber: item.lotNumber,
+                            totalAmount: 0,
+                            paymentDates: []
+                        };
+                    }
+                    lotTotals[item.lotId].totalAmount += item.amount;
+                    if (item.paymentDate) {
+                        lotTotals[item.lotId].paymentDates.push(item.paymentDate);
+                    }
+                });
+
+                // 按 lotNumber 排序
+                const sortedLots = Object.values(lotTotals).sort((a, b) => {
+                    return a.lotNumber.localeCompare(b.lotNumber);
+                });
+
+                // 渲染合并后的收入列表
+                sortedLots.forEach(lotData => {
+                    const incomeItem = document.createElement('div');
+                    incomeItem.className = 'financial-item';
+                    
+                    // 获取最早和最晚的付款日期
+                    let dateInfo = '';
+                    if (lotData.paymentDates.length > 0) {
+                        const dates = lotData.paymentDates.map(d => new Date(d)).sort((a, b) => a - b);
+                        const earliestDate = dates[0].toLocaleDateString('en-US');
+                        const latestDate = dates[dates.length - 1].toLocaleDateString('en-US');
+                        if (earliestDate === latestDate) {
+                            dateInfo = earliestDate;
+                        } else {
+                            dateInfo = `${earliestDate} - ${latestDate}`;
+                        }
+                    }
+                    
+                    incomeItem.innerHTML = `
+                        <div class="financial-item-left">
+                            <div>
+                                <div class="financial-item-purpose">Lot ${lotData.lotNumber}</div>
+                                ${dateInfo ? `<div class="financial-item-date">${dateInfo}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="financial-item-right">
+                            <div class="financial-item-amount" style="color: var(--success-color);">RM ${lotData.totalAmount.toFixed(2)}</div>
+                        </div>
+                    `;
+                    incomeList.appendChild(incomeItem);
+                });
+            }
+
+            // 渲染支出列表
+            const expenseList = document.getElementById('expenseList');
+            if (expenseData.details.length === 0) {
+                expenseList.innerHTML = '<div style="padding: 0.75rem; color: var(--text-secondary); text-align: center;">No expenses</div>';
+            } else {
+                expenseData.details.forEach(transaction => {
+                    const expenseItem = document.createElement('div');
+                    expenseItem.className = 'financial-item';
+                    const date = transaction.date ? new Date(transaction.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
+                    expenseItem.innerHTML = `
+                        <div class="financial-item-left">
+                            <div>
+                                <div class="financial-item-purpose">${transaction.purpose || 'N/A'}</div>
+                                <div class="financial-item-date">${date}</div>
+                            </div>
+                        </div>
+                        <div class="financial-item-right">
+                            <div class="financial-item-amount" style="color: var(--danger-color);">RM ${parseFloat(transaction.cost || 0).toFixed(2)}</div>
+                            ${transaction.imageUrl ? `
+                                <span class="material-icons financial-item-image-icon" onclick="app.viewTransactionImageModal('${transaction.id}', '${transaction.purpose || ''}', '${transaction.date || ''}', '${transaction.cost || 0}', '${transaction.imageUrl.replace(/'/g, "\\'")}')">image</span>
+                            ` : ''}
+                        </div>
+                    `;
+                    expenseList.appendChild(expenseItem);
+                });
+            }
+        } catch (error) {
+            console.error('Error rendering annual financial summary:', error);
+            content.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-secondary);">Error loading financial summary</div>';
+        }
+    },
+
+    // 查看 Transaction 图片 Modal
+    viewTransactionImageModal(transactionId, purpose, date, cost, imageUrl) {
+        const modal = document.getElementById('transactionImageModal');
+        const imageInfo = document.getElementById('transactionImageInfo');
+        const imageViewer = document.getElementById('transactionImageViewerImg');
+        
+        if (!modal || !imageInfo || !imageViewer) return;
+
+        // 显示交易信息
+        const formattedDate = date ? new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
+        imageInfo.innerHTML = `
+            <div class="transaction-image-info-item">
+                <span class="transaction-image-info-label">Purpose:</span>
+                <span class="transaction-image-info-value">${purpose || 'N/A'}</span>
+            </div>
+            <div class="transaction-image-info-item">
+                <span class="transaction-image-info-label">Date:</span>
+                <span class="transaction-image-info-value">${formattedDate}</span>
+            </div>
+            <div class="transaction-image-info-item">
+                <span class="transaction-image-info-label">Amount:</span>
+                <span class="transaction-image-info-value" style="color: var(--danger-color); font-weight: 600;">RM ${parseFloat(cost || 0).toFixed(2)}</span>
+            </div>
+        `;
+
+        // 显示图片
+        // TODO: 当 API 更新后，这里可以调用 API 获取图片
+        // 目前直接使用 imageUrl
+        imageViewer.src = imageUrl;
+        imageViewer.onerror = function() {
+            this.src = '';
+            this.alt = 'Image not available';
+        };
+
+        modal.classList.add('active');
+    },
+
+    // ============================================
+    // PDF Download Functions
+    // ============================================
+
+    // 下载 Dashboard 年度财务摘要 PDF
+    async downloadDashboardPdf() {
+        if (!DataManager.isAdmin()) {
+            alert('Only admin can download PDF');
+            return;
+        }
+
+        try {
+            const year = document.getElementById('dashboardYearSelect')?.value || new Date().getFullYear().toString();
+            
+            // 获取收入和支出数据
+            const incomeData = await DataManager.getIncomeForYear(year);
+            const expenseData = await DataManager.getExpensesForYear(year);
+            const netAmount = incomeData.total - expenseData.total;
+
+            // 使用 jsPDF 生成 PDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // 设置标题
+            doc.setFontSize(18);
+            doc.text('Annual Financial Summary', 14, 20);
+            doc.setFontSize(12);
+            doc.text(`Year: ${year}`, 14, 30);
+            
+            let yPos = 40;
+            
+            // 摘要信息
+            doc.setFontSize(14);
+            doc.text('Summary', 14, yPos);
+            yPos += 10;
+            
+            doc.setFontSize(10);
+            doc.setTextColor(0, 128, 0); // 绿色
+            doc.text(`Total Income: RM ${incomeData.total.toFixed(2)}`, 14, yPos);
+            yPos += 7;
+            
+            doc.setTextColor(255, 0, 0); // 红色
+            doc.text(`Total Expenses: RM ${expenseData.total.toFixed(2)}`, 14, yPos);
+            yPos += 7;
+            
+            doc.setTextColor(netAmount >= 0 ? 0 : 255, netAmount >= 0 ? 128 : 0, 0);
+            doc.text(`Net Amount: RM ${netAmount.toFixed(2)}`, 14, yPos);
+            yPos += 15;
+            
+            // 收入明细（按 lot 合并）
+            doc.setTextColor(0, 0, 0); // 黑色
+            doc.setFontSize(12);
+            doc.text('Income Details (Contribution)', 14, yPos);
+            yPos += 8;
+            
+            if (incomeData.details.length === 0) {
+                doc.setFontSize(10);
+                doc.text('No income records', 20, yPos);
+                yPos += 7;
+            } else {
+                // 按 lotId 分组并计算总数
+                const lotTotals = {};
+                incomeData.details.forEach(item => {
+                    if (!lotTotals[item.lotId]) {
+                        lotTotals[item.lotId] = {
+                            lotNumber: item.lotNumber,
+                            totalAmount: 0
+                        };
+                    }
+                    lotTotals[item.lotId].totalAmount += item.amount;
+                });
+
+                // 按 lotNumber 排序
+                const sortedLots = Object.values(lotTotals).sort((a, b) => {
+                    return a.lotNumber.localeCompare(b.lotNumber);
+                });
+
+                doc.setFontSize(9);
+                sortedLots.forEach((lotData, index) => {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    doc.text(`${index + 1}. Lot ${lotData.lotNumber}: RM ${lotData.totalAmount.toFixed(2)}`, 20, yPos);
+                    yPos += 6;
+                });
+            }
+            
+            yPos += 5;
+            
+            // 支出明细
+            doc.setFontSize(12);
+            doc.text('Expense Details (Transactions)', 14, yPos);
+            yPos += 8;
+            
+            if (expenseData.details.length === 0) {
+                doc.setFontSize(10);
+                doc.text('No expenses', 20, yPos);
+            } else {
+                doc.setFontSize(9);
+                expenseData.details.forEach((transaction, index) => {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    const date = transaction.date ? new Date(transaction.date).toLocaleDateString('en-US') : 'N/A';
+                    doc.text(`${index + 1}. ${transaction.purpose || 'N/A'} - ${date}: RM ${parseFloat(transaction.cost || 0).toFixed(2)}`, 20, yPos);
+                    yPos += 6;
+                });
+            }
+            
+            // 保存 PDF
+            doc.save(`Annual_Financial_Summary_${year}.pdf`);
+            Vibration.short();
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Failed to generate PDF. Please make sure jsPDF library is loaded.');
+        }
+    },
+
+    // 下载 Contribution 年度报表 PDF
+    async downloadContributionPdf() {
+        if (!DataManager.isAdmin()) {
+            alert('Only admin can download PDF');
+            return;
+        }
+
+        try {
+            const lotId = this.currentFeeLotId;
+            const year = this.currentFeeYear || new Date().getFullYear();
+            
+            if (!lotId) {
+                alert('Please select a lot first');
+                return;
+            }
+
+            const lot = DataManager.getLotById(lotId);
+            if (!lot) {
+                alert('Lot not found');
+                return;
+            }
+
+            // 获取该 lot 在该年份的所有月份数据
+            const monthlyFees = await DataManager.getFeesForLotAndYear(lotId, year);
+
+            // 使用 jsPDF 生成 PDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // 设置标题
+            doc.setFontSize(18);
+            doc.text('Contribution Records', 14, 20);
+            doc.setFontSize(12);
+            doc.text(`Lot: ${lot.lotNumber}`, 14, 30);
+            doc.text(`Year: ${year}`, 14, 37);
+            
+            let yPos = 50;
+            
+            // 表格标题
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.text('Month', 14, yPos);
+            doc.text('Amount (RM)', 60, yPos);
+            doc.text('Status', 100, yPos);
+            doc.text('Payment Date', 130, yPos);
+            yPos += 8;
+            
+            // 绘制表格线
+            doc.setDrawColor(200, 200, 200);
+            doc.line(14, yPos - 2, 200, yPos - 2);
+            
+            doc.setFont(undefined, 'normal');
+            let totalPaid = 0;
+            
+            monthlyFees.forEach((fee) => {
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                const monthName = new Date(fee.monthKey + '-01').toLocaleDateString('en-US', { month: 'short' });
+                doc.text(monthName, 14, yPos);
+                doc.text(`RM ${fee.amount.toFixed(2)}`, 60, yPos);
+                doc.text(fee.status === 'paid' ? 'Paid' : 'Unpaid', 100, yPos);
+                
+                if (fee.paymentDate) {
+                    const paymentDate = new Date(fee.paymentDate).toLocaleDateString('en-US');
+                    doc.text(paymentDate, 130, yPos);
+                } else {
+                    doc.text('-', 130, yPos);
+                }
+                
+                if (fee.status === 'paid') {
+                    totalPaid += parseFloat(fee.amount || 0);
+                }
+                
+                yPos += 7;
+            });
+            
+            yPos += 5;
+            doc.line(14, yPos, 200, yPos);
+            yPos += 8;
+            
+            // 总计
+            doc.setFont(undefined, 'bold');
+            doc.text(`Total Paid: RM ${totalPaid.toFixed(2)}`, 14, yPos);
+            
+            // 保存 PDF
+            doc.save(`Contribution_${lot.lotNumber}_${year}.pdf`);
+            Vibration.short();
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Failed to generate PDF. Please make sure jsPDF library is loaded.');
+        }
+    },
 };
 
 // 页面加载完成后初始化应用

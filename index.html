@@ -50,44 +50,55 @@
         <section id="dashboard" class="page active">
             <div class="container">
                 <h2>Dashboard</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon"><span class="material-icons">apartment</span></div>
-                        <div class="stat-info">
-                            <h3 id="totalLots">48</h3>
-                            <p>Total Lots</p>
+                
+                <!-- Utility Status Display (All Users) -->
+                <div class="utility-status-display" id="utilityStatusDisplay" style="display: none;">
+                    <div class="utility-status-row">
+                        <div class="utility-status-item">
+                            <div class="utility-status-header">
+                                <span class="material-icons utility-icon" id="powerStatusIcon">bolt</span>
+                                <span class="utility-text">Power</span>
+                            </div>
+                            <div class="utility-status-badge" id="powerStatusBadge">OFF</div>
+                            <div class="utility-status-time" id="powerStatusTime"></div>
                         </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><span class="material-icons">check_circle</span></div>
-                        <div class="stat-info">
-                            <h3 id="paidFees">0</h3>
-                            <p>Paid This Month</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><span class="material-icons">pending</span></div>
-                        <div class="stat-info">
-                            <h3 id="unpaidFees">0</h3>
-                            <p>Unpaid This Month</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><span class="material-icons">person</span></div>
-                        <div class="stat-info">
-                            <h3 id="currentUser">Guest</h3>
-                            <p>Current User</p>
+                        <div class="utility-status-item">
+                            <div class="utility-status-header">
+                                <span class="material-icons utility-icon" id="waterStatusIcon">water_drop</span>
+                                <span class="utility-text">Water</span>
+                            </div>
+                            <div class="utility-status-badge" id="waterStatusBadge">OFF</div>
+                            <div class="utility-status-time" id="waterStatusTime"></div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="quick-actions">
-                    <h3>Quick Actions</h3>
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" onclick="app.navigateTo('lots')">View All Lots</button>
-                        <button class="btn btn-primary" onclick="app.navigateTo('fees')">Check Fees</button>
-                        <button class="btn btn-secondary" onclick="app.navigateTo('cctv')">View CCTV</button>
-                        <button class="btn btn-secondary" id="userManagementBtn" style="display: none;" onclick="app.navigateTo('users')">User Management</button>
+                <!-- Balance Display (All Users) -->
+                <div class="balance-display" id="balanceDisplay" style="display: none;">
+                    <div class="balance-card">
+                        <div class="balance-header">
+                            <span class="material-icons balance-icon">account_balance</span>
+                            <span class="balance-label">Balance</span>
+                        </div>
+                        <div class="balance-value" id="balanceValue">RM 0.00</div>
+                    </div>
+                </div>
+
+                <!-- Annual Financial Summary (All Users) -->
+                <div class="annual-financial-summary" id="annualFinancialSummary" style="display: none;">
+                    <h3 class="financial-summary-title">Annual Financial Summary</h3>
+                    <div class="year-selector-container">
+                        <label for="dashboardYearSelect">Year:</label>
+                        <select id="dashboardYearSelect" onchange="app.loadAnnualFinancialSummary(this.value)">
+                            <!-- Years will be populated dynamically -->
+                        </select>
+                        <button class="btn btn-secondary" id="downloadDashboardPdfBtn" onclick="app.downloadDashboardPdf()" style="margin-left: 0.5rem; display: none;">
+                            <span class="material-icons" style="vertical-align: middle; font-size: 1.2em;">download</span>
+                            <span>Download PDF</span>
+                        </button>
+                    </div>
+                    <div class="financial-summary-content" id="financialSummaryContent">
+                        <!-- Annual income and expenses will be loaded here -->
                     </div>
                 </div>
             </div>
@@ -122,7 +133,8 @@
                 </div>
                 
                 <div class="cctv-notice">
-                    <p><span class="material-icons" style="vertical-align: middle; font-size: 1.2em;">warning</span> Only public area CCTV footage is displayed here.</p>
+                    <p><span class="material-icons" style="vertical-align: middle; font-size: 1.2em;">warning</span> Planned Feature
+Not available in the current version.</p>
                 </div>
                 
                 <div class="cctv-container" id="cctvContainer">
@@ -158,31 +170,55 @@
 
         <!-- 登录页面 -->
         <section id="login" class="page">
-            <div class="container">
+            <div class="login-wrapper">
                 <div class="login-container">
-                    <h2>Login</h2>
+                    <div class="login-header">
+                        <div class="login-logo">
+                            <img src="icons/prestige.png" alt="Logo" class="login-logo-img">
+                        </div>
+                        <h2>Taman Prestige</h2>
+                        <p class="login-subtitle">Resident Portal</p>
+                    </div>
+                    
                     <form id="loginForm" onsubmit="app.handleLogin(event)">
                         <div class="form-group">
-                            <label for="username">User ID</label>
+                            <label for="username">
+                                <span class="material-icons form-icon">person</span>
+                                User ID
+                            </label>
                             <input type="text" id="username" required autocomplete="username" placeholder="Enter your User ID">
                         </div>
                         <div class="form-group">
-                            <label for="password">Password</label>
-                            <input type="password" id="password" required autocomplete="current-password">
+                            <label for="password">
+                                <span class="material-icons form-icon">lock</span>
+                                Password
+                            </label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="password" required autocomplete="current-password" placeholder="Enter your password">
+                                <button type="button" class="password-toggle" id="passwordToggle" onclick="app.togglePasswordVisibility()">
+                                    <span class="material-icons">visibility</span>
+                                </button>
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-block">Login</button>
+                        <button type="submit" class="btn btn-primary btn-block login-btn">
+                            <span class="material-icons" style="vertical-align: middle; margin-right: 0.5rem;">login</span>
+                            Login
+                        </button>
                     </form>
                 
                     <!-- App Download Section -->
                     <div class="app-download-section">
-                        
-                        <button class="btn btn-primary btn-block" id="installAppBtn" onclick="app.handleInstallClick()">
-                            <span id="installBtnText"><span class="material-icons" style="vertical-align: middle; font-size: 1.2em;">download</span> Download App</span>
-                        </button><p class="app-download-desc">Install this app on your device for a better experience</p>
+                        <button class="btn btn-secondary btn-block" id="installAppBtn" onclick="app.handleInstallClick()">
+                            <span id="installBtnText">
+                                <span class="material-icons" style="vertical-align: middle; font-size: 1.2em; margin-right: 0.5rem;">download</span>
+                                Download App
+                            </span>
+                        </button>
+                        <p class="app-download-desc">Install this app on your device for a better experience</p>
                     </div>
                 </div>
-        </div>
-    </section>
+            </div>
+        </section>
 
         <!-- 用户管理页面 -->
         <section id="users" class="page">
@@ -200,6 +236,68 @@
                 
                 <div class="users-list" id="usersList">
                     <!-- Users will be dynamically loaded here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Utility 页面 -->
+        <section id="setting" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <h2>Utility</h2>
+                </div>
+                
+                <!-- Utility Status Controls (Admin Only) -->
+                <div class="utility-controls" id="utilityControls" style="display: none;">
+                    <h3 class="utility-section-title">Utility Management</h3>
+                    <div class="utility-item">
+                        <div class="utility-control-row">
+                            <label class="utility-label">
+                                <span class="material-icons utility-icon">bolt</span>
+                                <span class="utility-text">Power</span>
+                            </label>
+                            <label class="switch">
+                                <input type="checkbox" id="powerSwitch" onchange="app.toggleUtility('power', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="utility-time-control">
+                            <label for="powerTime" class="utility-time-label">Outage Time:</label>
+                            <input type="datetime-local" id="powerTime" class="utility-time-input" onchange="app.saveUtilityTime('power', this.value)">
+                        </div>
+                    </div>
+                    <div class="utility-item">
+                        <div class="utility-control-row">
+                            <label class="utility-label">
+                                <span class="material-icons utility-icon">water_drop</span>
+                                <span class="utility-text">Water</span>
+                            </label>
+                            <label class="switch">
+                                <input type="checkbox" id="waterSwitch" onchange="app.toggleUtility('water', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="utility-time-control">
+                            <label for="waterTime" class="utility-time-label">Outage Time:</label>
+                            <input type="datetime-local" id="waterTime" class="utility-time-input" onchange="app.saveUtilityTime('water', this.value)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Transaction 页面 -->
+        <section id="transactions" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <h2>Transaction List</h2>
+                    <button class="btn btn-primary" id="addTransactionBtn" onclick="app.showAddTransactionModal()">
+                        + Add Transaction
+                    </button>
+                </div>
+                
+                <div class="transactions-list" id="transactionsList">
+                    <!-- Transactions will be loaded here -->
                 </div>
             </div>
         </section>
@@ -294,6 +392,61 @@
         </div>
     </div>
 
+    <!-- Add/Edit Transaction Modal -->
+    <div class="modal" id="transactionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="transactionModalTitle">Add Transaction</h3>
+                <button class="modal-close" onclick="app.closeModal('transactionModal')">&times;</button>
+            </div>
+            <form id="transactionForm" onsubmit="app.saveTransaction(event)">
+                <div class="form-group">
+                    <label for="transactionPurpose">Purpose *</label>
+                    <input type="text" id="transactionPurpose" required placeholder="Enter transaction purpose">
+                </div>
+                <div class="form-group">
+                    <label for="transactionDate">Date *</label>
+                    <input type="date" id="transactionDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="transactionCost">Cost (RM) *</label>
+                    <input type="number" id="transactionCost" required step="0.01" min="0" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="transactionImage">Image</label>
+                    <input type="file" id="transactionImage" accept="image/*" onchange="app.handleImageUpload(event)">
+                    <small>Upload receipt or related image</small>
+                    <div id="transactionImagePreview" class="image-preview" style="display: none;">
+                        <img id="transactionImagePreviewImg" src="" alt="Preview">
+                        <button type="button" class="btn-remove-image" onclick="app.removeTransactionImage()">Remove</button>
+                    </div>
+                </div>
+                <input type="hidden" id="transactionId">
+                <input type="hidden" id="transactionImageUrl">
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal('transactionModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transaction Image Modal -->
+    <div class="modal" id="transactionImageModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Transaction Receipt</h3>
+                <button class="modal-close" onclick="app.closeModal('transactionImageModal')">&times;</button>
+            </div>
+            <div class="transaction-image-modal-content">
+                <div class="transaction-image-info" id="transactionImageInfo"></div>
+                <div class="transaction-image-viewer">
+                    <img id="transactionImageViewerImg" src="" alt="Receipt" style="max-width: 100%; height: auto;">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Annual Fee Table Modal -->
     <div class="modal" id="feeTableModal">
         <div class="modal-content modal-large">
@@ -307,6 +460,10 @@
                     <select id="yearSelect" onchange="app.loadFeeTableForYear(this.value)">
                         <!-- Years will be populated dynamically -->
                     </select>
+                    <button class="btn btn-secondary" id="downloadContributionPdfBtn" onclick="app.downloadContributionPdf()" style="margin-left: 0.5rem; display: none;">
+                        <span class="material-icons" style="vertical-align: middle; font-size: 1.2em;">download</span>
+                        <span>Download PDF</span>
+                    </button>
                 </div>
                 <div class="default-amount-container">
                     <label for="defaultAmount">Default Amount (RM):</label>
@@ -355,11 +512,19 @@
             <span class="bottom-nav-label">Setting</span>
             <!-- Setting 下拉菜单 -->
             <div class="setting-dropdown" id="settingDropdown">
-                <a href="#users" class="setting-dropdown-item" data-page="users" id="usersSettingItem" style="display: none;" onclick="app.navigateTo('users'); app.closeSettingMenu();">
+                <a href="#setting" class="setting-dropdown-item" data-page="setting" id="utilitySettingItem" style="display: none;" onclick="event.preventDefault(); event.stopPropagation(); app.closeSettingMenu(); setTimeout(() => app.navigateTo('setting'), 50);">
+                    <span class="material-icons">bolt</span>
+                    <span>Utility</span>
+                </a>
+                <a href="#transactions" class="setting-dropdown-item" data-page="transactions" id="transactionsSettingItem" style="display: none;" onclick="event.preventDefault(); event.stopPropagation(); app.closeSettingMenu(); setTimeout(() => app.navigateTo('transactions'), 50);">
+                    <span class="material-icons">receipt</span>
+                    <span>Transaction</span>
+                </a>
+                <a href="#users" class="setting-dropdown-item" data-page="users" id="usersSettingItem" style="display: none;" onclick="event.preventDefault(); event.stopPropagation(); app.closeSettingMenu(); setTimeout(() => app.navigateTo('users'), 50);">
                     <span class="material-icons">people</span>
                     <span>Users</span>
                 </a>
-                <a href="#logout" class="setting-dropdown-item" data-page="logout" onclick="app.handleLogout(); app.closeSettingMenu();">
+                <a href="#logout" class="setting-dropdown-item" data-page="logout" onclick="event.preventDefault(); event.stopPropagation(); app.closeSettingMenu(); setTimeout(() => app.handleLogout(), 50);">
                     <span class="material-icons">logout</span>
                     <span>Logout</span>
                 </a>
@@ -372,6 +537,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
+    
+    <!-- jsPDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <!-- Scripts -->
     <script src="js/firebase-config.js"></script>
@@ -391,3 +559,4 @@
     </script>
 </body>
 </html>
+

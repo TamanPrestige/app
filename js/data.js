@@ -310,6 +310,161 @@ const DataManager = {
         }
     },
 
+    // 优化版本：一次性计算所有 lots 的 Grand Total（只查询一次数据库）
+    async getGrandTotal() {
+        try {
+            let grandTotal = 0;
+            
+            // 优先使用缓存，如果缓存为空或不存在，则查询数据库
+            let feesData = this.fees;
+            if (!feesData || Object.keys(feesData).length === 0) {
+                const feesRef = database.ref('fees');
+                const snapshot = await feesRef.once('value');
+                feesData = snapshot.exists() ? snapshot.val() : {};
+            }
+            
+            // 遍历所有月份的所有 lots，计算已付款的总和
+            Object.keys(feesData).forEach(monthKey => {
+                const monthFees = feesData[monthKey];
+                if (monthFees) {
+                    Object.keys(monthFees).forEach(lotId => {
+                        const feeData = monthFees[lotId];
+                        if (feeData && feeData.status === 'paid' && feeData.amount) {
+                            grandTotal += parseFloat(feeData.amount) || 0;
+                        }
+                    });
+                }
+            });
+            
+            return grandTotal;
+        } catch (error) {
+            console.error('Error calculating grand total:', error);
+            return 0;
+        }
+    },
+
+    // 优化版本：一次性计算所有 lots 的总付款金额（返回对象，key 为 lotId）
+    async getAllLotsTotalPaid() {
+        try {
+            const lotsTotal = {};
+            
+            // 优先使用缓存，如果缓存为空或不存在，则查询数据库
+            let feesData = this.fees;
+            if (!feesData || Object.keys(feesData).length === 0) {
+                const feesRef = database.ref('fees');
+                const snapshot = await feesRef.once('value');
+                feesData = snapshot.exists() ? snapshot.val() : {};
+            }
+            
+            // 遍历所有月份的所有 lots，计算每个 lot 的总付款金额
+            Object.keys(feesData).forEach(monthKey => {
+                const monthFees = feesData[monthKey];
+                if (monthFees) {
+                    Object.keys(monthFees).forEach(lotId => {
+                        const feeData = monthFees[lotId];
+                        if (feeData && feeData.status === 'paid' && feeData.amount) {
+                            if (!lotsTotal[lotId]) {
+                                lotsTotal[lotId] = 0;
+                            }
+                            lotsTotal[lotId] += parseFloat(feeData.amount) || 0;
+                        }
+                    });
+                }
+            });
+            
+            return lotsTotal;
+        } catch (error) {
+            console.error('Error calculating all lots total paid:', error);
+            return {};
+        }
+    },
+
+    // 获取指定年份的收入（已付款的管理费）
+    async getIncomeForYear(year) {
+        try {
+            let totalIncome = 0;
+            const incomeDetails = [];
+            
+            // 优先使用缓存
+            let feesData = this.fees;
+            if (!feesData || Object.keys(feesData).length === 0) {
+                const feesRef = database.ref('fees');
+                const snapshot = await feesRef.once('value');
+                feesData = snapshot.exists() ? snapshot.val() : {};
+            }
+            
+            // 遍历所有月份，筛选出指定年份的已付款记录
+            Object.keys(feesData).forEach(monthKey => {
+                // monthKey 格式: "YYYY-MM"
+                if (monthKey.startsWith(year + '-')) {
+                    const monthFees = feesData[monthKey];
+                    if (monthFees) {
+                        Object.keys(monthFees).forEach(lotId => {
+                            const feeData = monthFees[lotId];
+                            if (feeData && feeData.status === 'paid' && feeData.amount) {
+                                const amount = parseFloat(feeData.amount) || 0;
+                                totalIncome += amount;
+                                
+                                // 获取 lot 信息
+                                const lot = this.getLotById(lotId);
+                                incomeDetails.push({
+                                    monthKey: monthKey,
+                                    lotId: lotId,
+                                    lotNumber: lot ? lot.lotNumber : lotId,
+                                    amount: amount,
+                                    paymentDate: feeData.paymentDate || null
+                                });
+                            }
+                        });
+                    }
+                }
+            });
+            
+            return {
+                total: totalIncome,
+                details: incomeDetails.sort((a, b) => {
+                    // 按月份和 lot 排序
+                    if (a.monthKey !== b.monthKey) {
+                        return b.monthKey.localeCompare(a.monthKey);
+                    }
+                    return a.lotNumber.localeCompare(b.lotNumber);
+                })
+            };
+        } catch (error) {
+            console.error('Error getting income for year:', error);
+            return { total: 0, details: [] };
+        }
+    },
+
+    // 获取指定年份的支出（Transactions）
+    async getExpensesForYear(year) {
+        try {
+            const transactions = await this.getAllTransactions();
+            const yearTransactions = transactions.filter(t => {
+                if (!t.date) return false;
+                const transactionYear = new Date(t.date).getFullYear().toString();
+                return transactionYear === year;
+            });
+            
+            const totalExpenses = yearTransactions.reduce((sum, t) => {
+                return sum + (parseFloat(t.cost) || 0);
+            }, 0);
+            
+            return {
+                total: totalExpenses,
+                details: yearTransactions.sort((a, b) => {
+                    // 按日期降序排序
+                    const dateA = new Date(a.date || 0);
+                    const dateB = new Date(b.date || 0);
+                    return dateB - dateA;
+                })
+            };
+        } catch (error) {
+            console.error('Error getting expenses for year:', error);
+            return { total: 0, details: [] };
+        }
+    },
+
     async updateFeeStatus(monthKey, lotId, status, paymentDate = null) {
         try {
             const feeRef = database.ref(`fees/${monthKey}/${lotId}`);
@@ -712,6 +867,174 @@ const DataManager = {
         } catch (error) {
             console.error('Error updating user role:', error);
             throw error;
+        }
+    },
+
+    // 获取电和水的状态
+    async getUtilityStatus() {
+        try {
+            const snapshot = await database.ref('utilities').once('value');
+            const data = snapshot.val();
+            return {
+                power: data?.power || false,
+                water: data?.water || false,
+                powerTime: data?.powerTime || null,
+                waterTime: data?.waterTime || null
+            };
+        } catch (error) {
+            console.error('Error getting utility status:', error);
+            return { power: false, water: false, powerTime: null, waterTime: null };
+        }
+    },
+
+    // 保存电和水的状态
+    async saveUtilityStatus(type, status) {
+        try {
+            await database.ref(`utilities/${type}`).set(status);
+        } catch (error) {
+            console.error('Error saving utility status:', error);
+            throw error;
+        }
+    },
+
+    // 保存电和水的停电停水时间
+    async saveUtilityTime(type, time) {
+        try {
+            await database.ref(`utilities/${type}Time`).set(time || null);
+        } catch (error) {
+            console.error('Error saving utility time:', error);
+            throw error;
+        }
+    },
+
+    // 监听电和水的状态变化
+    setupUtilityStatusListener(callback) {
+        try {
+            const ref = database.ref('utilities');
+            ref.on('value', (snapshot) => {
+                const data = snapshot.val();
+                callback({
+                    power: data?.power || false,
+                    water: data?.water || false,
+                    powerTime: data?.powerTime || null,
+                    waterTime: data?.waterTime || null
+                });
+            });
+            return () => ref.off('value');
+        } catch (error) {
+            console.error('Error setting up utility status listener:', error);
+            return () => {};
+        }
+    },
+
+    // ============================================
+    // Transaction 管理
+    // ============================================
+    transactions: [],
+
+    // 获取所有 Transactions
+    async getAllTransactions() {
+        try {
+            const snapshot = await database.ref('transactions').once('value');
+            const transactions = [];
+            if (snapshot.exists()) {
+                snapshot.forEach((childSnapshot) => {
+                    transactions.push({
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
+                });
+            }
+            // 按日期降序排序
+            transactions.sort((a, b) => {
+                const dateA = new Date(a.date || 0);
+                const dateB = new Date(b.date || 0);
+                return dateB - dateA;
+            });
+            this.transactions = transactions;
+            return transactions;
+        } catch (error) {
+            console.error('Error getting transactions:', error);
+            return [];
+        }
+    },
+
+    // 保存 Transaction
+    async saveTransaction(transaction) {
+        try {
+            const transactionData = {
+                purpose: transaction.purpose,
+                date: transaction.date,
+                cost: parseFloat(transaction.cost) || 0,
+                imageUrl: transaction.imageUrl || null,
+                createdAt: transaction.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            if (transaction.id) {
+                // 更新现有 transaction
+                transactionData.updatedAt = new Date().toISOString();
+                await database.ref(`transactions/${transaction.id}`).update(transactionData);
+            } else {
+                // 创建新 transaction
+                const newRef = await database.ref('transactions').push(transactionData);
+                return newRef.key;
+            }
+        } catch (error) {
+            console.error('Error saving transaction:', error);
+            throw error;
+        }
+    },
+
+    // 删除 Transaction
+    async deleteTransaction(transactionId) {
+        try {
+            await database.ref(`transactions/${transactionId}`).remove();
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+            throw error;
+        }
+    },
+
+    // 获取所有 Transactions 的总金额
+    async getTotalTransactionsAmount() {
+        try {
+            const transactions = await this.getAllTransactions();
+            return transactions.reduce((total, transaction) => {
+                return total + (parseFloat(transaction.cost) || 0);
+            }, 0);
+        } catch (error) {
+            console.error('Error calculating total transactions amount:', error);
+            return 0;
+        }
+    },
+
+    // 监听 Transactions 变化
+    setupTransactionsListener(callback) {
+        try {
+            const ref = database.ref('transactions');
+            ref.on('value', async (snapshot) => {
+                const transactions = [];
+                if (snapshot.exists()) {
+                    snapshot.forEach((childSnapshot) => {
+                        transactions.push({
+                            id: childSnapshot.key,
+                            ...childSnapshot.val()
+                        });
+                    });
+                }
+                transactions.sort((a, b) => {
+                    const dateA = new Date(a.date || 0);
+                    const dateB = new Date(b.date || 0);
+                    return dateB - dateA;
+                });
+                this.transactions = transactions;
+                callback(transactions);
+            });
+            return () => ref.off('value');
+        } catch (error) {
+            console.error('Error setting up transactions listener:', error);
+            return () => {};
         }
     }
 };
