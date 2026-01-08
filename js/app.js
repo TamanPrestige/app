@@ -152,6 +152,9 @@ const app = {
 
     // 页面导航
     navigateTo(page) {
+        // 震动反馈
+        Vibration.short();
+
         if (page === 'logout') {
             DataManager.logout();
             this.navigateTo('login');
@@ -395,10 +398,13 @@ const app = {
     // 保存Lot（只更新 ownerName 和 phoneNumber）
     async saveLot(event) {
         event.preventDefault();
+        Vibration.short(); // 按钮点击震动
+
         const form = event.target;
         const lotId = form.getAttribute('data-lot-id');
 
         if (!lotId) {
+            Vibration.error();
             alert('Invalid lot. Please select a lot to edit.');
             return;
         }
@@ -410,6 +416,7 @@ const app = {
 
         // 验证必填字段
         if (!lotData.ownerName || !lotData.phoneNumber) {
+            Vibration.warning();
             alert('Owner Name and Phone Number are required.');
             return;
         }
@@ -418,10 +425,12 @@ const app = {
             // 只更新，不修改 lotNumber（lotNumber 是自动生成的，不可修改）
             await DataManager.updateLot(lotId, lotData);
 
+            Vibration.success(); // 成功震动
             this.closeModal('lotModal');
             this.loadLots();
             this.loadDashboard();
         } catch (error) {
+            Vibration.error();
             alert('Error saving lot. Please try again.');
             console.error(error);
         }
@@ -759,11 +768,15 @@ const app = {
         const lotId = this.currentFeeLotId;
         if (!lotId) return;
 
+        Vibration.short(); // 打勾/取消打勾震动
+
         try {
             const status = isPaid ? 'paid' : 'unpaid';
             const paymentDate = isPaid ? new Date().toISOString().split('T')[0] : null;
             
             await DataManager.updateFeeStatus(monthKey, lotId, status, paymentDate);
+            
+            Vibration.success(); // 成功更新震动
             
             // 重新加载表格
             await this.loadFeeTableForYear(this.currentFeeYear);
@@ -771,6 +784,7 @@ const app = {
             // 更新 Contribution 页面上该 lot 的 total 显示
             await this.updateLotTotalDisplay(lotId);
         } catch (error) {
+            Vibration.error();
             alert('Error updating payment status. Please try again.');
             console.error(error);
         }
@@ -813,12 +827,18 @@ const app = {
         const lotId = this.currentFeeLotId;
         if (!lotId) return;
 
+        Vibration.short(); // 设置日期按钮点击震动
+
         const dateStr = prompt('Enter payment date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
-        if (!dateStr) return;
+        if (!dateStr) {
+            Vibration.warning();
+            return;
+        }
 
         // 验证日期格式
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(dateStr)) {
+            Vibration.error();
             alert('Invalid date format. Please use YYYY-MM-DD');
             return;
         }
@@ -826,12 +846,15 @@ const app = {
         try {
             await DataManager.updateFeeStatus(monthKey, lotId, 'paid', dateStr);
             
+            Vibration.success(); // 日期设置成功震动
+            
             // 重新加载表格
             await this.loadFeeTableForYear(this.currentFeeYear);
             
             // 更新 Contribution 页面上该 lot 的 total 显示
             await this.updateLotTotalDisplay(lotId);
         } catch (error) {
+            Vibration.error();
             alert('Error updating payment date. Please try again.');
             console.error(error);
         }
@@ -848,16 +871,20 @@ const app = {
     // 处理登录
     async handleLogin(event) {
         event.preventDefault();
+        Vibration.short(); // 登录按钮点击震动
+
         const email = document.getElementById('username').value; // 使用 email 作为用户名
         const password = document.getElementById('password').value;
 
         try {
             const user = await DataManager.login(email, password);
             if (user) {
+                Vibration.success(); // 登录成功震动
                 this.updateUIForUser(user);
                 this.navigateTo('dashboard');
             }
         } catch (error) {
+            Vibration.error(); // 登录失败震动
             let errorMessage = 'Login failed. Please try again.';
             if (error.code === 'auth/user-not-found') {
                 errorMessage = 'User not found.';
@@ -896,6 +923,8 @@ const app = {
 
     async saveUser(event) {
         event.preventDefault();
+        Vibration.short(); // 创建用户按钮点击震动
+
         const email = document.getElementById('userEmail').value.trim();
         const password = document.getElementById('userPassword').value;
         const role = 'resident'; // 强制为 resident
@@ -905,6 +934,7 @@ const app = {
             // 检查当前用户是否为 admin
             const currentUser = DataManager.getCurrentUser();
             if (!currentUser || currentUser.role !== 'admin') {
+                Vibration.error();
                 alert('Only admin can create users.');
                 return;
             }
@@ -937,6 +967,8 @@ const app = {
 
             // 创建用户（会自动登出新用户并重新登录 admin）
             await DataManager.createUser(email, password, role, displayName, currentUser.email, adminPassword);
+            
+            Vibration.success(); // 用户创建成功震动
             
             // 检查是否还在登录状态
             const stillLoggedIn = DataManager.isLoggedIn();
