@@ -133,19 +133,27 @@ const app = {
             loginNavLink.setAttribute('data-page', 'logout');
         }
 
+        // 获取用户显示名称（优先使用 userId）
+        const userDisplayName = user ? (user.userId || (user.email ? user.email.replace('@prestige.local', '') : 'User')) : 'Guest';
+
         // 更新dashboard用户信息
         const currentUserEl = document.getElementById('currentUser');
         if (currentUserEl) {
-            const displayName = user.email ? user.email.split('@')[0] : 'User';
-            currentUserEl.textContent = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+            currentUserEl.textContent = userDisplayName.charAt(0).toUpperCase() + userDisplayName.slice(1);
+        }
+
+        // 更新顶部导航栏的用户信息
+        const userInfo = document.getElementById('userInfo');
+        if (userInfo) {
+            userInfo.textContent = userDisplayName;
+            userInfo.style.display = user ? 'block' : 'none';
         }
 
         // 更新移动端用户信息
         const mobileUserName = document.getElementById('mobileUserName');
         const userInfoMobile = document.getElementById('userInfoMobile');
         if (mobileUserName && userInfoMobile) {
-            const displayName = user.email ? user.email.split('@')[0] : 'User';
-            mobileUserName.textContent = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+            mobileUserName.textContent = userDisplayName.charAt(0).toUpperCase() + userDisplayName.slice(1);
             userInfoMobile.style.display = 'block';
         }
     },
@@ -873,11 +881,17 @@ const app = {
         event.preventDefault();
         Vibration.short(); // 登录按钮点击震动
 
-        const email = document.getElementById('username').value; // 使用 email 作为用户名
+        const userId = document.getElementById('username').value.trim(); // 使用 User ID
         const password = document.getElementById('password').value;
 
+        if (!userId) {
+            Vibration.warning();
+            alert('Please enter your User ID.');
+            return;
+        }
+
         try {
-            const user = await DataManager.login(email, password);
+            const user = await DataManager.login(userId, password);
             if (user) {
                 Vibration.success(); // 登录成功震动
                 this.updateUIForUser(user);
@@ -887,11 +901,11 @@ const app = {
             Vibration.error(); // 登录失败震动
             let errorMessage = 'Login failed. Please try again.';
             if (error.code === 'auth/user-not-found') {
-                errorMessage = 'User not found.';
+                errorMessage = 'User ID not found. Please check your User ID.';
             } else if (error.code === 'auth/wrong-password') {
                 errorMessage = 'Incorrect password.';
             } else if (error.code === 'auth/invalid-email') {
-                errorMessage = 'Invalid email address.';
+                errorMessage = 'Invalid User ID format.';
             }
             alert(errorMessage);
         }
@@ -918,17 +932,73 @@ const app = {
         document.getElementById('userModalTitle').textContent = 'Create User';
         document.getElementById('userForm').reset();
         document.getElementById('userForm').setAttribute('data-user-id', '');
+        
+        // 填充 Lot 下拉选择框
+        this.populateLotSelector();
+        
+        // 重置 Display Name
+        document.getElementById('userName').value = '';
+        
         this.openModal('userModal');
+    },
+
+    // 填充 Lot 选择器（lot01 - lot48）
+    populateLotSelector() {
+        const select = document.getElementById('userId');
+        if (!select) return;
+
+        // 清空现有选项（保留第一个 "-- Select Lot --"）
+        while (select.children.length > 1) {
+            select.removeChild(select.lastChild);
+        }
+
+        // 生成 lot01 - lot48 选项（小写字母，无空格）
+        for (let i = 1; i <= 48; i++) {
+            const lotId = `lot${i.toString().padStart(2, '0')}`; // lot01, lot02, ..., lot48
+            const lotDisplay = `LOT ${i.toString().padStart(2, '0')}`; // 显示为 LOT 01, LOT 02, ...
+            const option = document.createElement('option');
+            option.value = lotId; // 使用 lot01 格式作为 User ID（无空格，小写）
+            option.textContent = lotDisplay; // 显示为 LOT 01（带空格，大写）
+            select.appendChild(option);
+        }
+    },
+
+    // 当 User ID (Lot) 选择改变时，自动更新 Display Name
+    onUserIdChange(selectedLotId) {
+        const displayNameInput = document.getElementById('userName');
+        if (displayNameInput && selectedLotId) {
+            // 将 lot01 格式转换为 LOT 01 格式显示
+            const displayFormat = selectedLotId.replace(/lot/i, 'LOT ').replace(/(\d+)/, (match) => {
+                return match.padStart(2, '0');
+            });
+            displayNameInput.value = displayFormat; // 自动设置为选中的 Lot ID（显示格式）
+        } else if (displayNameInput && !selectedLotId) {
+            displayNameInput.value = ''; // 如果没有选择，清空
+        }
     },
 
     async saveUser(event) {
         event.preventDefault();
         Vibration.short(); // 创建用户按钮点击震动
 
-        const email = document.getElementById('userEmail').value.trim();
+        const userId = document.getElementById('userId').value.trim();
         const password = document.getElementById('userPassword').value;
         const role = 'resident'; // 强制为 resident
         const displayName = document.getElementById('userName').value.trim() || null;
+
+        // 验证 User ID
+        if (!userId) {
+            Vibration.warning();
+            alert('User ID is required.');
+            return;
+        }
+
+        // 检查 User ID 格式
+        if (userId.includes('@')) {
+            Vibration.error();
+            alert('User ID cannot contain @ symbol.');
+            return;
+        }
 
         try {
             // 检查当前用户是否为 admin
@@ -940,10 +1010,9 @@ const app = {
             }
 
             // 验证 admin 密码（用于重新登录）
-            // 使用一个更友好的方式：在模态框中添加密码验证字段
-            // 或者使用 prompt（简单但不够友好）
             const adminPassword = prompt('Please enter your admin password to verify and continue:');
             if (!adminPassword) {
+                Vibration.warning();
                 return; // 用户取消
             }
 
@@ -953,11 +1022,18 @@ const app = {
                 const currentAuth = auth.currentUser;
                 if (currentAuth) {
                     await auth.signOut();
-                    // 尝试用输入的密码登录
-                    await auth.signInWithEmailAndPassword(currentUser.email, adminPassword);
+                    // 尝试用输入的密码登录（使用转换后的 email）
+                    // 获取 admin 的 userId（如果没有则从 email 提取）
+                    let adminUserId = currentUser.userId;
+                    if (!adminUserId && currentUser.email) {
+                        adminUserId = DataManager.emailToUserId(currentUser.email);
+                    }
+                    const adminEmail = DataManager.userIdToEmail(adminUserId || currentUser.email);
+                    await auth.signInWithEmailAndPassword(adminEmail, adminPassword);
                     // 验证成功，继续创建用户
                 }
             } catch (verifyError) {
+                Vibration.error();
                 if (verifyError.code === 'auth/wrong-password' || verifyError.code === 'auth/user-not-found') {
                     alert('Incorrect admin password. Please try again.');
                     return;
@@ -966,7 +1042,12 @@ const app = {
             }
 
             // 创建用户（会自动登出新用户并重新登录 admin）
-            await DataManager.createUser(email, password, role, displayName, currentUser.email, adminPassword);
+            // 获取 admin 的 userId（如果没有则从 email 提取）
+            let adminUserId = currentUser.userId;
+            if (!adminUserId && currentUser.email) {
+                adminUserId = DataManager.emailToUserId(currentUser.email);
+            }
+            await DataManager.createUser(userId, password, role, displayName, adminUserId || currentUser.email, adminPassword);
             
             Vibration.success(); // 用户创建成功震动
             
@@ -982,15 +1063,18 @@ const app = {
             this.closeModal('userModal');
             this.loadUsers();
         } catch (error) {
+            Vibration.error();
             let errorMessage = 'Error creating user. Please try again.';
             if (error.code === 'auth/email-already-in-use') {
-                errorMessage = 'This email is already registered.';
+                errorMessage = 'This User ID is already registered. Please choose a different User ID.';
             } else if (error.code === 'auth/invalid-email') {
-                errorMessage = 'Invalid email address.';
+                errorMessage = 'Invalid User ID format.';
             } else if (error.code === 'auth/weak-password') {
                 errorMessage = 'Password is too weak. Minimum 6 characters required.';
             } else if (error.code === 'auth/wrong-password') {
                 errorMessage = 'Incorrect admin password. Please try again.';
+            } else if (error.message && error.message.includes('User ID')) {
+                errorMessage = error.message;
             } else if (error.message && error.message.includes('admin')) {
                 errorMessage = 'Failed to re-login as admin. Please login again.';
             }

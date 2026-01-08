@@ -32,7 +32,8 @@ const DataManager = {
                         await this.loadUserData(user);
                         this.currentUser = {
                             uid: user.uid,
-                            email: user.email,
+                            userId: this.emailToUserId(user.email),
+                            email: user.email, // 保留内部 email
                             role: this.currentUser?.role || 'resident' // 从数据库获取角色
                         };
                         
@@ -419,9 +420,26 @@ const DataManager = {
         }
     },
 
+    // 将 User ID 转换为 Firebase email 格式
+    userIdToEmail(userId) {
+        // 将 id 转换为 email 格式存储（Firebase 要求）
+        // 使用 @prestige.local 作为域名
+        return `${userId}@prestige.local`;
+    },
+
+    // 从 Firebase email 提取 User ID
+    emailToUserId(email) {
+        if (email && email.includes('@prestige.local')) {
+            return email.replace('@prestige.local', '');
+        }
+        return email;
+    },
+
     // Firebase Authentication 方法
-    async login(email, password) {
+    async login(userId, password) {
         try {
+            // 将 User ID 转换为 email 格式进行登录
+            const email = this.userIdToEmail(userId.trim());
             const userCredential = await auth.signInWithEmailAndPassword(email, password);
             const user = userCredential.user;
             
@@ -430,7 +448,8 @@ const DataManager = {
             
             return {
                 uid: user.uid,
-                email: user.email,
+                userId: this.emailToUserId(user.email),
+                email: user.email, // 保留内部 email（用于重新登录等）
                 role: this.currentUser?.role || 'resident'
             };
         } catch (error) {
@@ -466,7 +485,7 @@ const DataManager = {
     },
 
     // 用户管理方法
-    async createUser(email, password, role, displayName = null, adminEmail = null, adminPassword = null) {
+    async createUser(userId, password, role, displayName = null, adminUserId = null, adminPassword = null) {
         try {
             if (typeof auth === 'undefined') {
                 throw new Error('Firebase Auth not available');
@@ -481,6 +500,27 @@ const DataManager = {
             // 强制 role 为 resident（admin 只能创建 resident）
             const userRole = 'resident';
 
+            // 验证 User ID 格式（不能为空，建议只包含字母、数字、下划线）
+            const userIdTrimmed = userId.trim();
+            if (!userIdTrimmed || userIdTrimmed.length === 0) {
+                throw new Error('User ID cannot be empty');
+            }
+            
+            // 检查 User ID 是否包含非法字符（不允许 @ 符号，因为会被转换为 email）
+            if (userIdTrimmed.includes('@')) {
+                throw new Error('User ID cannot contain @ symbol');
+            }
+            
+            // 检查 User ID 是否包含空格（Firebase email 不支持空格）
+            if (userIdTrimmed.includes(' ')) {
+                throw new Error('User ID cannot contain spaces');
+            }
+
+            // 将 User ID 转换为 email 格式（Firebase 要求）
+            // 确保 User ID 是有效的 email 格式（小写，无空格）
+            const cleanUserId = userIdTrimmed.toLowerCase().replace(/\s+/g, '');
+            const email = this.userIdToEmail(cleanUserId);
+
             // 保存当前 admin 的 token（用于重新登录）
             let adminToken = null;
             try {
@@ -489,7 +529,7 @@ const DataManager = {
                 console.warn('Could not get admin token:', e);
             }
 
-            // 创建 Firebase Auth 用户
+            // 创建 Firebase Auth 用户（使用转换后的 email）
             const userCredential = await auth.createUserWithEmailAndPassword(email, password);
             const newUser = userCredential.user;
 
@@ -502,9 +542,10 @@ const DataManager = {
 
             // 在 Realtime Database 中保存用户信息
             const userData = {
-                email: email,
+                userId: cleanUserId, // 保存清理后的 User ID（小写，无空格）
+                email: email, // 保存转换后的 email（用于内部）
                 role: userRole,
-                username: displayName || email.split('@')[0],
+                username: displayName || cleanUserId,
                 createdAt: new Date().toISOString()
             };
 
@@ -513,9 +554,13 @@ const DataManager = {
             // 登出新创建的用户（因为 createUserWithEmailAndPassword 会自动登录新用户）
             await auth.signOut();
             
-            // 如果有 admin 的 email 和 password，重新登录 admin
-            if (adminEmail && adminPassword) {
+            // 如果有 admin 的 userId 和 password，重新登录 admin
+            if (adminUserId && adminPassword) {
                 try {
+                    // 清理 admin User ID（移除空格，转小写）
+                    const cleanAdminUserId = adminUserId.trim().toLowerCase().replace(/\s+/g, '');
+                    // 将 admin User ID 转换为 email 格式
+                    const adminEmail = this.userIdToEmail(cleanAdminUserId);
                     await auth.signInWithEmailAndPassword(adminEmail, adminPassword);
                     // 重新加载用户数据
                     const adminUser = auth.currentUser;
@@ -523,6 +568,7 @@ const DataManager = {
                         await this.loadUserData(adminUser);
                         this.currentUser = {
                             uid: adminUser.uid,
+                            userId: this.emailToUserId(adminUser.email),
                             email: adminUser.email,
                             role: this.currentUser?.role || 'admin'
                         };
@@ -542,9 +588,10 @@ const DataManager = {
             
             return {
                 uid: newUser.uid,
+                userId: cleanUserId,
                 email: email,
                 role: userRole,
-                username: displayName || email.split('@')[0]
+                username: displayName || cleanUserId
             };
         } catch (error) {
             console.error('Error creating user:', error);
