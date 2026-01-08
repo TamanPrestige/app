@@ -244,15 +244,30 @@ const app = {
         document.getElementById('unpaidFees').textContent = unpaid;
     },
 
+    // Lots 页面监听器回调（用于防止重复）
+    lotsCallback: null,
+    lotsCallbackParams: null,
+
     // 加载Lots页面
     loadLots() {
         const lotsGrid = document.getElementById('lotsGrid');
         const isAdmin = DataManager.isAdmin();
 
-        // 设置监听器以实时更新
-        DataManager.setupLotsListener((lots) => {
-            this.renderLots(lots, lotsGrid, isAdmin);
-        });
+        // 创建或更新回调函数
+        if (!this.lotsCallback || !this.lotsCallbackParams) {
+            this.lotsCallbackParams = { lotsGrid, isAdmin };
+            this.lotsCallback = (lots) => {
+                const params = this.lotsCallbackParams;
+                this.renderLots(lots, params.lotsGrid, params.isAdmin);
+            };
+        } else {
+            // 更新参数
+            this.lotsCallbackParams.lotsGrid = lotsGrid;
+            this.lotsCallbackParams.isAdmin = isAdmin;
+        }
+
+        // 设置监听器以实时更新（内部会先移除旧的）
+        DataManager.setupLotsListener(this.lotsCallback);
 
         // 初始渲染
         const lots = DataManager.getAllLots();
@@ -513,12 +528,23 @@ const app = {
     currentFeeYear: null,
     defaultFeeAmount: 10.00,
 
+    // Fees 页面监听器回调（用于防止重复）
+    feesLotsCallback: null,
+
     // 加载管理费页面（显示所有 lot 列表）
     loadFees() {
-        // 设置监听器以实时更新数据（类似 loadLots）
-        DataManager.setupLotsListener((lots) => {
-            this.renderFeesLots(lots);
-        });
+        // 如果已有监听器回调，先移除
+        if (this.feesLotsCallback) {
+            // 重新设置监听器（内部会移除旧的）
+            DataManager.setupLotsListener(this.feesLotsCallback);
+        } else {
+            // 创建新的回调函数
+            this.feesLotsCallback = (lots) => {
+                this.renderFeesLots(lots);
+            };
+            // 设置监听器以实时更新数据（类似 loadLots）
+            DataManager.setupLotsListener(this.feesLotsCallback);
+        }
         
         // 初始加载
         const lots = DataManager.getAllLots();
@@ -535,10 +561,21 @@ const app = {
             lots = DataManager.getAllLots();
         }
         
+        // 去重：使用 Map 确保每个 lot 只显示一次（基于 lot.id）
+        const uniqueLotsMap = new Map();
+        lots.forEach(lot => {
+            if (lot && lot.id) {
+                if (!uniqueLotsMap.has(lot.id)) {
+                    uniqueLotsMap.set(lot.id, lot);
+                }
+            }
+        });
+        const uniqueLots = Array.from(uniqueLotsMap.values());
+        
         container.innerHTML = '';
 
         // 如果还没有 lots 数据，显示加载提示
-        if (!lots || lots.length === 0) {
+        if (!uniqueLots || uniqueLots.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">Loading lots...</p>';
             this.updateGrandTotal(0);
             return;
@@ -547,7 +584,7 @@ const app = {
         let grandTotal = 0;
 
         // 为每个 lot 计算总付款金额
-        for (const lot of lots) {
+        for (const lot of uniqueLots) {
             const totalPaid = await DataManager.getTotalPaidAmountForLot(lot.id);
             grandTotal += totalPaid;
             

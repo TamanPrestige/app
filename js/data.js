@@ -93,10 +93,19 @@ const DataManager = {
         }
     },
 
+    // Lots 监听器引用（用于移除旧监听器）
+    lotsListenerRef: null,
+    lotsListenerCallback: null,
+
     // 监听 Lots 数据变化
     setupLotsListener(callback) {
+        // 如果已有监听器，先移除旧的
+        if (this.lotsListenerRef) {
+            this.lotsListenerRef.off('value', this.lotsListenerCallback);
+        }
+
         const lotsRef = database.ref('lots');
-        lotsRef.on('value', (snapshot) => {
+        this.lotsListenerCallback = (snapshot) => {
             if (snapshot.exists()) {
                 const lotsData = snapshot.val();
                 // 转换为数组并排序
@@ -113,7 +122,10 @@ const DataManager = {
                 this.lots = [];
             }
             if (callback) callback(this.lots);
-        });
+        };
+        
+        lotsRef.on('value', this.lotsListenerCallback);
+        this.lotsListenerRef = lotsRef;
     },
 
     // 监听管理费数据变化
