@@ -2017,7 +2017,7 @@ const app = {
                 <div class="financial-year-title">${year}</div>
                 <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
                     <div>
-                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Income</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Contribution</div>
                         <div class="financial-year-amount income">RM ${incomeData.total.toFixed(2)}</div>
                     </div>
                     <div>
@@ -2040,7 +2040,7 @@ const app = {
             incomeSection.innerHTML = `
                 <div class="financial-section-title">
                     <span class="material-icons">trending_up</span>
-                    <span>Income (Contribution)</span>
+                    <span>(Contribution)</span>
                 </div>
                 <div class="financial-list" id="incomeList"></div>
             `;
@@ -2052,7 +2052,7 @@ const app = {
             expenseSection.innerHTML = `
                 <div class="financial-section-title">
                     <span class="material-icons">trending_down</span>
-                    <span>Expenses (Transactions)</span>
+                    <span>(Expenses)</span>
                 </div>
                 <div class="financial-list" id="expenseList"></div>
             `;
