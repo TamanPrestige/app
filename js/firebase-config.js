@@ -19,7 +19,6 @@ let firebaseApp;
 let database;
 let auth;
 let analytics;
-let messaging;
 
 try {
     // 检查 firebase 是否已加载
@@ -34,15 +33,6 @@ try {
         // 初始化 Firebase 服务
         database = firebase.database();
         auth = firebase.auth();
-        
-        // 初始化 Messaging（仅在浏览器环境且支持 service worker）
-        if ('serviceWorker' in navigator) {
-            try {
-                messaging = firebase.messaging();
-            } catch (e) {
-                console.warn('Messaging not available:', e);
-            }
-        }
         
         // Analytics 可选
         try {

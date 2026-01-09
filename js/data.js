@@ -656,60 +656,6 @@ const DataManager = {
         return this.currentUser !== null;
     },
 
-    // FCM Token 管理方法
-    async saveFCMToken(token) {
-        if (!database) {
-            console.warn('Database not available');
-            return Promise.resolve();
-        }
-        
-        // 使用 Firebase Auth 的 UID，而不是 userId
-        let uid = null;
-        if (auth && auth.currentUser) {
-            uid = auth.currentUser.uid;
-        } else if (this.currentUser && this.currentUser.uid) {
-            uid = this.currentUser.uid;
-        }
-        
-        if (!uid) {
-            console.error('无法获取用户 UID，无法保存 FCM Token');
-            return Promise.resolve();
-        }
-        
-        return database.ref(`users/${uid}/fcmToken`).set(token)
-            .then(() => {
-                console.log('FCM Token saved successfully to users/' + uid + '/fcmToken');
-            })
-            .catch((error) => {
-                console.error('Error saving FCM Token:', error);
-            });
-    },
-
-    async getAllFCMTokens() {
-        if (!database) return Promise.resolve([]);
-        
-        return database.ref('users').once('value')
-            .then((snapshot) => {
-                const tokens = [];
-                snapshot.forEach((childSnapshot) => {
-                    const user = childSnapshot.val();
-                    if (user.fcmToken) {
-                        tokens.push({
-                            userId: childSnapshot.key,
-                            token: user.fcmToken,
-                            email: user.email,
-                            role: user.role
-                        });
-                    }
-                });
-                return tokens;
-            })
-            .catch((error) => {
-                console.error('Error getting FCM Tokens:', error);
-                return [];
-            });
-    },
-
     // 用户管理方法
     async createUser(userId, password, role, displayName = null, adminUserId = null, adminPassword = null) {
         try {
