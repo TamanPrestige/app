@@ -658,14 +658,27 @@ const DataManager = {
 
     // FCM Token 管理方法
     async saveFCMToken(token) {
-        if (!this.currentUser || !database) return Promise.resolve();
+        if (!database) {
+            console.warn('Database not available');
+            return Promise.resolve();
+        }
         
-        const userId = this.getCurrentUserId();
-        if (!userId) return Promise.resolve();
+        // 使用 Firebase Auth 的 UID，而不是 userId
+        let uid = null;
+        if (auth && auth.currentUser) {
+            uid = auth.currentUser.uid;
+        } else if (this.currentUser && this.currentUser.uid) {
+            uid = this.currentUser.uid;
+        }
         
-        return database.ref(`users/${userId}/fcmToken`).set(token)
+        if (!uid) {
+            console.error('无法获取用户 UID，无法保存 FCM Token');
+            return Promise.resolve();
+        }
+        
+        return database.ref(`users/${uid}/fcmToken`).set(token)
             .then(() => {
-                console.log('FCM Token saved successfully');
+                console.log('FCM Token saved successfully to users/' + uid + '/fcmToken');
             })
             .catch((error) => {
                 console.error('Error saving FCM Token:', error);
