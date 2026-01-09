@@ -125,7 +125,7 @@ const app = {
 
     // 根据用户角色更新UI
     updateUIForUser(user) {
-        const isAdmin = DataManager.isAdmin();
+        const isAdmin = DataManager.isAdminOrSAdmin();
         
         // 显示/隐藏管理员按钮
         document.querySelectorAll('[id$="Btn"], [id$="Actions"]').forEach(btn => {
@@ -381,7 +381,7 @@ const app = {
 
     // 加载 Setting 页面
     loadSetting() {
-        const isAdmin = DataManager.isAdmin();
+        const isAdmin = DataManager.isAdminOrSAdmin();
         const utilityControls = document.getElementById('utilityControls');
         
         // 显示/隐藏管理员控制面板
@@ -552,7 +552,7 @@ const app = {
     // 切换电和水状态
     async toggleUtility(type, status) {
         try {
-            if (!DataManager.isAdmin()) {
+            if (!DataManager.isAdminOrSAdmin()) {
                 alert('Only admin can change utility status');
                 return;
             }
@@ -572,7 +572,7 @@ const app = {
     // 保存电和水的停电停水时间
     async saveUtilityTime(type, time) {
         try {
-            if (!DataManager.isAdmin()) {
+            if (!DataManager.isAdminOrSAdmin()) {
                 alert('Only admin can set utility time');
                 return;
             }
@@ -591,7 +591,7 @@ const app = {
     // 加载Lots页面
     loadLots() {
         const lotsGrid = document.getElementById('lotsGrid');
-        const isAdmin = DataManager.isAdmin();
+        const isAdmin = DataManager.isAdminOrSAdmin();
 
         // 创建或更新回调函数
         if (!this.lotsCallback || !this.lotsCallbackParams) {
@@ -709,7 +709,7 @@ const app = {
         );
 
         const lotsGrid = document.getElementById('lotsGrid');
-        const isAdmin = DataManager.isAdmin();
+        const isAdmin = DataManager.isAdminOrSAdmin();
         this.renderLots(filtered, lotsGrid, isAdmin);
     },
 
@@ -1034,7 +1034,7 @@ const app = {
         tbody.innerHTML = '';
 
         const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-        const isAdmin = DataManager.isAdmin();
+        const isAdmin = DataManager.isAdminOrSAdmin();
 
         monthNames.forEach((monthName, index) => {
             const month = index + 1;
@@ -1333,7 +1333,7 @@ const app = {
         try {
             // 检查当前用户是否为 admin
             const currentUser = DataManager.getCurrentUser();
-            if (!currentUser || currentUser.role !== 'admin') {
+            if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'sadmin')) {
                 Vibration.error();
                 alert('Only admin can create users.');
                 return;
@@ -1458,6 +1458,8 @@ const app = {
         const usersList = document.getElementById('usersList');
         if (!usersList) return;
         
+        // 确保 usersList 有 users-list class
+        usersList.classList.add('users-list');
         usersList.innerHTML = '';
 
         if (users.length === 0) {
@@ -1465,9 +1467,64 @@ const app = {
             return;
         }
 
+        const isSAdmin = DataManager.isSAdmin();
+
         users.forEach(user => {
             const userCard = document.createElement('div');
             userCard.className = 'lot-card';
+            
+            // 确定角色显示
+            let roleBadge = 'Resident';
+            let roleClass = 'unpaid';
+            if (user.role === 'admin') {
+                roleBadge = 'Admin';
+                roleClass = 'paid';
+            } else if (user.role === 'sadmin') {
+                roleBadge = 'SAdmin';
+                roleClass = 'sadmin';
+            }
+            
+            // 格式化最后登录时间（仅 sadmin 可见）
+            let lastLoginHtml = '';
+            if (isSAdmin) {
+                if (user.lastLogin) {
+                    const lastLoginDate = new Date(user.lastLogin);
+                    const now = new Date();
+                    const diffMs = now - lastLoginDate;
+                    const diffMins = Math.floor(diffMs / 60000);
+                    const diffHours = Math.floor(diffMs / 3600000);
+                    const diffDays = Math.floor(diffMs / 86400000);
+                    
+                    let lastLoginText = '';
+                    if (diffMins < 1) {
+                        lastLoginText = 'Just now';
+                    } else if (diffMins < 60) {
+                        lastLoginText = `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+                    } else if (diffHours < 24) {
+                        lastLoginText = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                    } else if (diffDays < 7) {
+                        lastLoginText = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                    } else {
+                        lastLoginText = lastLoginDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    }
+                    
+                    lastLoginHtml = `
+                        <div class="lot-info-item">
+                            <span class="material-icons" style="font-size: 0.875rem; vertical-align: middle;">login</span>
+                            <span>Last Login: ${lastLoginText}</span>
+                        </div>
+                    `;
+                } else {
+                    // 如果没有 lastLogin 记录，显示 "Never"
+                    lastLoginHtml = `
+                        <div class="lot-info-item">
+                            <span class="material-icons" style="font-size: 0.875rem; vertical-align: middle;">login</span>
+                            <span>Last Login: Never</span>
+                        </div>
+                    `;
+                }
+            }
+            
             userCard.innerHTML = `
                 <div class="lot-card-header">
                     <div style="flex: 1;">
@@ -1483,16 +1540,17 @@ const app = {
                         </div>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
-                        <span class="status-badge ${user.role === 'admin' ? 'paid' : 'unpaid'}">
-                            ${user.role === 'admin' ? 'Admin' : 'Resident'}
+                        <span class="status-badge ${roleClass}">
+                            ${roleBadge}
                         </span>
                     </div>
                 </div>
-                <div class="lot-info">
+                <div class="lot-info" style="display: flex;">
                     <div class="lot-info-item">
                         <span class="material-icons" style="font-size: 1rem; vertical-align: middle;">calendar_today</span>
                         <span>Created: ${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</span>
                     </div>
+                    ${lastLoginHtml}
                 </div>
             `;
             usersList.appendChild(userCard);
@@ -1615,7 +1673,7 @@ const app = {
 
     // 加载 Transactions 页面
     async loadTransactions() {
-        if (!DataManager.isAdmin()) {
+        if (!DataManager.isAdminOrSAdmin()) {
             this.navigateTo('dashboard');
             return;
         }
@@ -1851,7 +1909,7 @@ const app = {
     async saveTransaction(event) {
         event.preventDefault();
         
-        if (!DataManager.isAdmin()) {
+        if (!DataManager.isAdminOrSAdmin()) {
             alert('Only admin can manage transactions');
             return;
         }
@@ -1892,7 +1950,7 @@ const app = {
 
     // 删除 Transaction
     async deleteTransaction(transactionId) {
-        if (!DataManager.isAdmin()) {
+        if (!DataManager.isAdminOrSAdmin()) {
             alert('Only admin can delete transactions');
             return;
         }
@@ -2025,7 +2083,7 @@ const app = {
                         <div class="financial-year-amount expense">RM ${expenseData.total.toFixed(2)}</div>
                     </div>
                     <div>
-                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Net</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Balance</div>
                         <div class="financial-year-amount" style="color: ${(incomeData.total - expenseData.total) >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}">
                             RM ${(incomeData.total - expenseData.total).toFixed(2)}
                         </div>
@@ -2195,7 +2253,7 @@ const app = {
 
     // 下载 Dashboard 年度财务摘要 PDF
     async downloadDashboardPdf() {
-        if (!DataManager.isAdmin()) {
+        if (!DataManager.isAdminOrSAdmin()) {
             alert('Only admin can download PDF');
             return;
         }
@@ -2311,7 +2369,7 @@ const app = {
 
     // 下载 Contribution 年度报表 PDF
     async downloadContributionPdf() {
-        if (!DataManager.isAdmin()) {
+        if (!DataManager.isAdminOrSAdmin()) {
             alert('Only admin can download PDF');
             return;
         }

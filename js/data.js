@@ -601,6 +601,15 @@ const DataManager = {
             // 加载用户角色
             await this.loadUserData(user);
             
+            // 更新最后登录时间
+            if (user.uid) {
+                try {
+                    await database.ref(`users/${user.uid}/lastLogin`).set(new Date().toISOString());
+                } catch (error) {
+                    console.warn('Failed to update last login time:', error);
+                }
+            }
+            
             return {
                 uid: user.uid,
                 userId: this.emailToUserId(user.email),
@@ -633,6 +642,14 @@ const DataManager = {
 
     isAdmin() {
         return this.currentUser && this.currentUser.role === 'admin';
+    },
+
+    isSAdmin() {
+        return this.currentUser && this.currentUser.role === 'sadmin';
+    },
+
+    isAdminOrSAdmin() {
+        return this.currentUser && (this.currentUser.role === 'admin' || this.currentUser.role === 'sadmin');
     },
 
     isLoggedIn() {
@@ -766,10 +783,15 @@ const DataManager = {
             }
 
             const usersData = snapshot.val();
-            const users = Object.keys(usersData).map(uid => ({
+            let users = Object.keys(usersData).map(uid => ({
                 uid: uid,
                 ...usersData[uid]
             }));
+
+            // 如果是 admin，过滤掉 sadmin 账号
+            if (this.isAdmin() && !this.isSAdmin()) {
+                users = users.filter(user => user.role !== 'sadmin');
+            }
 
             console.log(`Found ${users.length} users`);
 

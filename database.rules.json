@@ -1,13 +1,13 @@
 {
   "rules": {
     "users": {
-      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'sadmin')",
       "$uid": {
-        ".read": "$uid === auth.uid || (auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin')",
-        ".write": "$uid === auth.uid || (auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".read": "$uid === auth.uid || (auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'sadmin'))",
+        ".write": "$uid === auth.uid || (auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'sadmin'))",
         "role": {
           ".read": true,
-          ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
+          ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'sadmin'"
         }
       }
     },
@@ -20,29 +20,29 @@
     },
     "lots": {
       ".read": "auth != null",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'sadmin')"
     },
     "fees": {
       ".read": "auth != null",
       "$monthKey": {
         "$lotId": {
-          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || $lotId === auth.uid)"
+          ".write": "auth != null && ((root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'sadmin') || $lotId === auth.uid)"
         }
       }
     },
     "cctv": {
       ".read": "auth != null",
       "links": {
-        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'sadmin')"
       }
     },
     "utilities": {
       ".read": "auth != null",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'sadmin')"
     },
     "transactions": {
       ".read": "auth != null",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'sadmin')"
     }
   }
 }
