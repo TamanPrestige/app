@@ -205,6 +205,11 @@ const app = {
                 this.loadUtilityStatus();
             }
         }
+
+        // 初始化 FCM（用户登录后）
+        if (user) {
+            this.initializeFCM();
+        }
     },
 
     // 处理登出
@@ -1555,6 +1560,79 @@ const app = {
             `;
             usersList.appendChild(userCard);
         });
+    },
+
+    // 初始化 FCM 和请求通知权限
+    async initializeFCM() {
+        if (!messaging) {
+            console.warn('Firebase Messaging not available');
+            return;
+        }
+
+        try {
+            // 请求通知权限
+            const permission = await Notification.requestPermission();
+            
+            if (permission === 'granted') {
+                console.log('通知权限已授予');
+                
+                // VAPID Key
+                const vapidKey = 'BGTmCauv4-TDHNsf1e9J0puGsYPqYoXDVinwTQbX9oPgLC8BzKEc--WPZ2qbymg6K2iO4UeWLUa9K4PiPKMA-4I';
+                
+                // 获取 FCM Token
+                const token = await messaging.getToken({ vapidKey: vapidKey });
+                
+                if (token) {
+                    console.log('FCM Token:', token);
+                    // 保存 Token 到数据库
+                    await DataManager.saveFCMToken(token);
+                } else {
+                    console.warn('无法获取 FCM Token');
+                }
+                
+                // 监听 Token 刷新
+                messaging.onTokenRefresh(async () => {
+                    const newToken = await messaging.getToken({ vapidKey: vapidKey });
+                    if (newToken) {
+                        console.log('FCM Token refreshed:', newToken);
+                        await DataManager.saveFCMToken(newToken);
+                    }
+                });
+                
+                // 监听前台推送通知
+                messaging.onMessage((payload) => {
+                    console.log('收到前台推送通知:', payload);
+                    
+                    // 显示通知
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        const notification = new Notification(
+                            payload.notification?.title || 'Taman Prestige Community',
+                            {
+                                body: payload.notification?.body || payload.data?.body,
+                                icon: '/icons/prestige.png',
+                                badge: '/icons/prestige.png',
+                                tag: payload.data?.tag || 'default',
+                                data: payload.data || {}
+                            }
+                        );
+                        
+                        // 点击通知时打开应用
+                        notification.onclick = (event) => {
+                            event.preventDefault();
+                            window.focus();
+                            // 可以导航到特定页面
+                            if (payload.data?.url) {
+                                this.navigateTo(payload.data.url);
+                            }
+                        };
+                    }
+                });
+            } else {
+                console.log('通知权限被拒绝');
+            }
+        } catch (error) {
+            console.error('FCM 初始化错误:', error);
+        }
     },
 
     searchUsers(query) {

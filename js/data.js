@@ -656,6 +656,47 @@ const DataManager = {
         return this.currentUser !== null;
     },
 
+    // FCM Token 管理方法
+    async saveFCMToken(token) {
+        if (!this.currentUser || !database) return Promise.resolve();
+        
+        const userId = this.getCurrentUserId();
+        if (!userId) return Promise.resolve();
+        
+        return database.ref(`users/${userId}/fcmToken`).set(token)
+            .then(() => {
+                console.log('FCM Token saved successfully');
+            })
+            .catch((error) => {
+                console.error('Error saving FCM Token:', error);
+            });
+    },
+
+    async getAllFCMTokens() {
+        if (!database) return Promise.resolve([]);
+        
+        return database.ref('users').once('value')
+            .then((snapshot) => {
+                const tokens = [];
+                snapshot.forEach((childSnapshot) => {
+                    const user = childSnapshot.val();
+                    if (user.fcmToken) {
+                        tokens.push({
+                            userId: childSnapshot.key,
+                            token: user.fcmToken,
+                            email: user.email,
+                            role: user.role
+                        });
+                    }
+                });
+                return tokens;
+            })
+            .catch((error) => {
+                console.error('Error getting FCM Tokens:', error);
+                return [];
+            });
+    },
+
     // 用户管理方法
     async createUser(userId, password, role, displayName = null, adminUserId = null, adminPassword = null) {
         try {
